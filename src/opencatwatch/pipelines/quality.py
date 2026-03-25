@@ -10,6 +10,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from ..config import Settings
+from ..hygiene import validate_public_docs
 from ..utils import normalize_name, read_json, read_jsonl, write_json
 
 RELEASE_THRESHOLDS = {
@@ -499,6 +500,9 @@ def audit_processed_data(settings: Settings) -> str:
 
 def run_release_check(settings: Settings) -> str:
     project_root = Path(__file__).resolve().parents[3]
+    public_doc_errors = validate_public_docs(project_root)
+    if public_doc_errors:
+        raise RuntimeError("public docs check failed: " + "; ".join(public_doc_errors))
     env = dict(os.environ)
     src_path = str(project_root / "src")
     existing_pythonpath = env.get("PYTHONPATH")

@@ -72,7 +72,7 @@ Out of scope for v0:
 
 ## How an agent should work in this repo
 
-- Read `docs/CODEX_BOOTSTRAP.md` first.
+- Read `README.md` first, then the public reference docs in `docs/`.
 - Use `catalog/sources.yml` for source URLs and rules.
 - Run commands via `python -m opencatwatch --help` after installing editable with `pip install -e .`.
 - Update tests whenever parser logic changes.

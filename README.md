@@ -112,10 +112,15 @@ The repo is designed to publish the committed snapshot in `apps/site/` directly.
 
 - `src/opencatwatch/` - fetchers, pipelines, CLI
 - `apps/site/` - static dashboard
+- `docs/` - public reference docs only
 - `catalog/sources.yml` - source catalog
 - `data/manual/` - tracked manual evidence tables
 - `reports/` - committed public audit outputs
 - `tests/` - parser, pipeline, and quality regressions
+
+## Public Docs Boundary
+
+`docs/` is part of the public repo surface. Keep only stable public reference material there. Internal planning notes, operator checklists, release playbooks, and agent/session bootstrap docs belong under `do/` and must stay untracked.
 
 ## Current Public Gate
 
