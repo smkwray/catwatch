@@ -1,0 +1,422 @@
+{
+  "generated_at": "2026-03-25T20:56:50Z",
+  "counts": {
+    "tranches": 770,
+    "material_tranches": 641,
+    "programme_shells": 129,
+    "watchlist_matches": 21866,
+    "watchlist_events": 423
+  },
+  "coverage": {
+    "sponsor_coverage_pct": 71.61,
+    "region_coverage_pct": 96.41,
+    "identified_sponsors": 72,
+    "inferred_region_rows": 577
+  },
+  "issues": {
+    "broad_peril_matches": 4142,
+    "unknown_region_matches": 3762,
+    "outstanding_missing_maturity": 7,
+    "broad_peril_rows": 25
+  },
+  "dashboard_consistency": {
+    "actual_next_12m_maturities": 130,
+    "dashboard_next_12m_maturities": 130,
+    "next_12m_gap": 0,
+    "dashboard_demo_mode": false,
+    "dashboard_age_days": 0
+  },
+  "manual_evidence": {
+    "summary": {
+      "sponsor_aliases": {
+        "rows": 79,
+        "issues": 0
+      },
+      "tranche_overrides": {
+        "rows": 14,
+        "issues": 0
+      }
+    },
+    "issues": []
+  },
+  "public_limitations": [
+    "Mangrove Risk Solutions Bermuda Ltd: 4 missing sponsor evidence, 4 missing region evidence, 4 broad peril classification.",
+    "Voussoir Re Ltd: 6 missing sponsor evidence, 6 missing maturity.",
+    "Eclipse Re Ltd: 9 missing sponsor evidence.",
+    "Aquila Re I Ltd: 6 missing sponsor evidence, 1 missing maturity.",
+    "Artex Axcell Re (Bermuda) Limited: 3 missing sponsor evidence, 3 broad peril classification.",
+    "Mystic Re IV Ltd: 6 missing sponsor evidence.",
+    "Mona Lisa Re Ltd: 5 missing sponsor evidence.",
+    "PoleStar Re Ltd: 5 missing sponsor evidence."
+  ],
+  "release_gate": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "sponsor_coverage",
+        "passed": true,
+        "actual": 71.61,
+        "target": ">=70.0",
+        "detail": "Sponsor coverage on material tranches."
+      },
+      {
+        "name": "region_coverage",
+        "passed": true,
+        "actual": 96.41,
+        "target": ">=95.0",
+        "detail": "Region coverage on material tranches."
+      },
+      {
+        "name": "outstanding_missing_maturity",
+        "passed": true,
+        "actual": 7,
+        "target": "<=40",
+        "detail": "Outstanding material rows without maturity."
+      },
+      {
+        "name": "broad_peril_rows",
+        "passed": true,
+        "actual": 25,
+        "target": "<=25",
+        "detail": "Registry rows still using other_property_cat."
+      },
+      {
+        "name": "dashboard_not_demo",
+        "passed": true,
+        "actual": true,
+        "target": true,
+        "detail": "Committed dashboard snapshot is present and non-demo."
+      },
+      {
+        "name": "dashboard_current",
+        "passed": true,
+        "actual": 0,
+        "target": "<=14 days",
+        "detail": "Dashboard as_of date is recent enough for public release."
+      },
+      {
+        "name": "dashboard_evidence_fields",
+        "passed": true,
+        "actual": true,
+        "target": true,
+        "detail": "Dashboard payload exposes evidence-facing fields for site rendering."
+      },
+      {
+        "name": "manual_evidence_metadata",
+        "passed": true,
+        "actual": 0,
+        "target": 0,
+        "detail": "Manual evidence tables include source_url and notes on every row."
+      },
+      {
+        "name": "non_placeholder_user_agent",
+        "passed": true,
+        "actual": true,
+        "target": "real contact string",
+        "detail": "Live fetches require a real operator contact string."
+      },
+      {
+        "name": "public_limitations_present",
+        "passed": true,
+        "actual": 8,
+        "target": ">=1",
+        "detail": "Remaining unresolved families are called out in public limitations text."
+      }
+    ],
+    "failed_checks": []
+  },
+  "top_review_candidates": [
+    {
+      "tranche_name": "Artex Axcell Re (Bermuda) Ltd ILS Note Program II at Risk PI0059 Kettering Notes due Mar 31, 2026",
+      "issuer_name": "Artex Axcell Re (Bermuda) Ltd",
+      "family_name": "Artex Axcell Re (Bermuda) Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940980"
+    },
+    {
+      "tranche_name": "Kaith Re Ltd Li Re 2025-1 Bond due July 15, 2026",
+      "issuer_name": "Kaith Re Ltd Li Re 2025-1",
+      "family_name": "Kaith Re Ltd Li Re 2025-1",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940954"
+    },
+    {
+      "tranche_name": "Kaith Re Ltd Li Re 2025-2 Bond due October 15, 2026",
+      "issuer_name": "Kaith Re Ltd Li Re 2025-2",
+      "family_name": "Kaith Re Ltd Li Re 2025-2",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940990"
+    },
+    {
+      "tranche_name": "Mangrove Risk Solutions Bermuda Ltd. Series 2025-A Disc Zero Coupon Par Notes due May 15, 2026",
+      "issuer_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "family_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940951"
+    },
+    {
+      "tranche_name": "Mangrove Risk Solutions Bermuda Ltd. Series 2025-C1 Disc Zero Coupon Par Notes due June12, 2026",
+      "issuer_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "family_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940966"
+    },
+    {
+      "tranche_name": "Mangrove Risk Solutions Bermuda Ltd. Series 2025-D2 Disc Zero Coupon Par Notes due Apr 10, 2026",
+      "issuer_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "family_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940938"
+    },
+    {
+      "tranche_name": "Mangrove Risk Solutions Bermuda Ltd. Series 2025-G Class E Notes due June 12, 2026",
+      "issuer_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "family_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940974"
+    },
+    {
+      "tranche_name": "Nascent Re Ltd SAC “OFS Re” - Series 2026-001 Preferred Shares due 31 Dec 2026",
+      "issuer_name": "Nascent Re Ltd SAC “OFS Re” - EUR",
+      "family_name": "Nascent Re Ltd SAC “OFS Re” - EUR",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941109"
+    },
+    {
+      "tranche_name": "Ramble Re Ltd Series 2024-1 Class A Principal At-Risk Variable Rate Notes due March 5, 2027",
+      "issuer_name": "Ramble Re Ltd",
+      "family_name": "Ramble Re Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940616"
+    },
+    {
+      "tranche_name": "Sailfish Re Ltd Koi Re Series 2025-1 Class A Principal At-Risk Variable Rate Notes due June 5, 2026",
+      "issuer_name": "Sailfish Re Ltd Koi Re",
+      "family_name": "Sailfish Re Ltd Koi Re",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940926"
+    },
+    {
+      "tranche_name": "Skyline Re II Ltd Series 2025-1 Class A Principal At-Risk Variable Rate Notes due January 7, 2030",
+      "issuer_name": "Skyline Re II Ltd",
+      "family_name": "Skyline Re II Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941054"
+    },
+    {
+      "tranche_name": "Solis Re Ltd. Series 2025-1 Class A Principal At-Risk Variable Rate Notes due July 7, 2028",
+      "issuer_name": "Solis Re Ltd",
+      "family_name": "Solis Re Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940932"
+    },
+    {
+      "tranche_name": "Solomon Re Ltd. Series 2023-1 Class A Principal At-Risk Variable Rate Notes due 8 June 2026",
+      "issuer_name": "Solomon Re Ltd",
+      "family_name": "Solomon Re Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940422"
+    },
+    {
+      "tranche_name": "Stabilitas Re Ltd. Series 2023-1- Class A Principal At-Risk Variable Rate Notes due June 5, 2026",
+      "issuer_name": "Stabilitas Re Ltd",
+      "family_name": "Stabilitas Re Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940420"
+    },
+    {
+      "tranche_name": "Tremont Re Ltd Series 2026-1 Class A Principal At-Risk Variable Rate Notes due March 22, 2029",
+      "issuer_name": "Tremont Re Ltd. (“Issuer”)",
+      "family_name": "Tremont Re Ltd. (“Issuer”)",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941131"
+    },
+    {
+      "tranche_name": "Turris Re Ltd Series 2025-1 Class A Principal At-Risk Variable Rate Notes due January 8, 2029",
+      "issuer_name": "Turris Re Ltd",
+      "family_name": "Turris Re Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941018"
+    },
+    {
+      "tranche_name": "White Rock Insurance Company PCC Ltd Randolph Re Series 2024-1 Class A PAR VR Notes due July 7, 2025",
+      "issuer_name": "White Rock Insurance Company PCC Ltd Randolph Re",
+      "family_name": "White Rock Insurance Company PCC Ltd Randolph Re",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940707"
+    },
+    {
+      "tranche_name": "Artex Axcell Re (Bermuda) Limited ILS Note Program II at Risk Dodeka 2024-1 Notes due Apr 6, 2026",
+      "issuer_name": "Artex Axcell Re (Bermuda) Limited",
+      "family_name": "Artex Axcell Re (Bermuda) Limited",
+      "issues": [
+        "missing_sponsor",
+        "broad_peril"
+      ],
+      "priority": 6,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940703"
+    },
+    {
+      "tranche_name": "Artex Axcell Re (Bermuda) Limited ILS Note Program II at Risk FE0002 Notes due April 28, 2026",
+      "issuer_name": "Artex Axcell Re (Bermuda) Limited",
+      "family_name": "Artex Axcell Re (Bermuda) Limited",
+      "issues": [
+        "missing_sponsor",
+        "broad_peril"
+      ],
+      "priority": 6,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940964"
+    },
+    {
+      "tranche_name": "Artex Axcell Re (Bermuda) Limited ILS Note Program II at Risk FE0003 Notes due July 23, 2027",
+      "issuer_name": "Artex Axcell Re (Bermuda) Limited",
+      "family_name": "Artex Axcell Re (Bermuda) Limited",
+      "issues": [
+        "missing_sponsor",
+        "broad_peril"
+      ],
+      "priority": 6,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940971"
+    },
+    {
+      "tranche_name": "Aquila Re I Ltd - Principal At-Risk Variable Rate Note Program.",
+      "issuer_name": "Aquila Re I Ltd",
+      "family_name": "Aquila Re I Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_maturity"
+      ],
+      "priority": 5,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940400"
+    },
+    {
+      "tranche_name": "Phoenix 2 Re Pte Ltd Series 2022-1 Class A Participating Notes due January 4, 2028",
+      "issuer_name": "Phoenix 2 Re Pte Ltd",
+      "family_name": "Phoenix 2 Re Pte Ltd",
+      "issues": [
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 5,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940056"
+    },
+    {
+      "tranche_name": "Phoenix 2 Re Pte Ltd Series 2022-1 Class B Participating Notes due January 4, 2028",
+      "issuer_name": "Phoenix 2 Re Pte Ltd",
+      "family_name": "Phoenix 2 Re Pte Ltd",
+      "issues": [
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 5,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940057"
+    },
+    {
+      "tranche_name": "Voussoir Re Ltd Series 2021-9 Preferred Shares",
+      "issuer_name": "Voussoir Re Ltd",
+      "family_name": "Voussoir Re Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_maturity"
+      ],
+      "priority": 5,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940037"
+    },
+    {
+      "tranche_name": "Voussoir Re Ltd Series 2022-1 Preferred Shares",
+      "issuer_name": "Voussoir Re Ltd",
+      "family_name": "Voussoir Re Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_maturity"
+      ],
+      "priority": 5,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940121"
+    }
+  ]
+}

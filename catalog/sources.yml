@@ -1,0 +1,84 @@
+version: 1
+project: OpenCatWatch
+sources:
+  bsx_ils:
+    name: Bermuda Stock Exchange
+    type: listing_registry
+    priority: high
+    base_urls:
+      - https://www.bsx.com/comp_insurance_linked_securities.php
+      - https://www.bsx.com/comp_securities/insurance_linked_securities.php
+    notes:
+      - Use BSX as the initial tranche discovery layer.
+      - Parse company detail pages and capture field-level provenance.
+      - Do not mirror copyrighted page text in bulk; store normalized facts and source URLs.
+  bma_entities:
+    name: Bermuda Monetary Authority Regulated Entities
+    type: regulator_registry
+    priority: high
+    base_urls:
+      - https://www.bma.bm/regulated-entities
+    notes:
+      - Query by issuer / SPV / programme aliases.
+      - Useful for matching SPIs and Restricted Special Purpose Insurers.
+  sec_edgar:
+    name: SEC EDGAR APIs
+    type: sponsor_disclosure
+    priority: high
+    base_urls:
+      - https://www.sec.gov/search-filings/edgar-application-programming-interfaces
+      - https://data.sec.gov/submissions/
+    notes:
+      - Backend only. Set User-Agent header.
+      - Pull submissions JSON and optionally filing documents for term scanning.
+  noaa_stormevents:
+    name: NOAA Storm Events
+    type: hazard_history
+    priority: high
+    base_urls:
+      - https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/
+    notes:
+      - Bulk CSV.GZ history. Use as historical event layer and for backtests.
+  nws_alerts:
+    name: National Weather Service API
+    type: live_hazards
+    priority: high
+    base_urls:
+      - https://api.weather.gov/alerts/active
+      - https://www.weather.gov/documentation/services-web-api
+    notes:
+      - Set User-Agent header.
+      - Best for live watchlist signals, not final loss determination.
+  ibtracs:
+    name: NOAA IBTrACS
+    type: tropical_cyclones
+    priority: high
+    base_urls:
+      - https://www.ncei.noaa.gov/products/international-best-track-archive
+      - https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/
+    notes:
+      - Use active or recent CSV for tropical cyclone overlays.
+  usgs_eq:
+    name: USGS Earthquake Hazards Program API
+    type: earthquakes
+    priority: high
+    base_urls:
+      - https://earthquake.usgs.gov/fdsnws/event/1/
+    notes:
+      - Query events API or use GeoJSON feeds for current events.
+  openfema:
+    name: OpenFEMA Disaster Declarations
+    type: disaster_registry
+    priority: medium
+    base_urls:
+      - https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries
+    notes:
+      - Use for broad disaster context, not precise trigger modeling.
+  cme_weather:
+    name: CME weather products
+    type: market_context
+    priority: low
+    base_urls:
+      - https://www.cmegroup.com/trading/weather/
+    notes:
+      - Useful later for contextual weather-risk market content, not core v0.

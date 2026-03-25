@@ -1,0 +1,35 @@
+# Agent orchestration and working docs
+do/
+*.plan.md
+plan.md
+plans/
+reports/checkpoints/
+
+# Environment
+.env
+
+# Python artifacts
+.DS_Store
+.venv/
+venv/
+env/
+__pycache__/
+.___pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+*.egg-info/
+dist/
+build/
+._*
+
+# Data outputs
+data/raw/**
+data/processed/**
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/manual/.gitkeep
+data/manual/review_queue.csv

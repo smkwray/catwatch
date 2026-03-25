@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenCatWatch</title>
+  <link rel="stylesheet" href="./assets/styles.css" />
+</head>
+<body>
+  <header class="shell hero">
+    <div>
+      <p class="eyebrow">OpenCatWatch</p>
+      <h1>Public-data cat bond registry and watchlist</h1>
+      <p class="lede">Initial public release. Registry-first, evidence-first, and still in progress.</p>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="card">
+      <div class="section-head">
+        <h2>Market now</h2>
+        <p id="as-of"></p>
+      </div>
+      <div id="kpis" class="kpis"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>Maturity wall</h2>
+        <p>Each row links back to the public tranche record and sponsor evidence when available.</p>
+      </div>
+      <div id="maturity-wall" class="maturity-wall"></div>
+    </section>
+
+    <section class="grid-two">
+      <section class="card">
+        <div class="section-head">
+          <h2>Watchlist</h2>
+          <p>Possible overlaps only, with event sources and rule-based explanation text.</p>
+        </div>
+        <div id="watchlist" class="stack"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-head">
+          <h2>Sponsor × peril</h2>
+          <p>Count of public tranche records by sponsor and peril.</p>
+        </div>
+        <div id="matrix"></div>
+      </section>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>Notes</h2>
+      </div>
+      <ul id="notes"></ul>
+    </section>
+  </main>
+
+  <script src="./assets/app.js" type="module"></script>
+</body>
+</html>

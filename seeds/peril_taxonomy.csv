@@ -1,0 +1,13 @@
+peril_code,display_name,category,notes
+us_wind,U.S. Wind,weather,Atlantic/Gulf hurricane and related U.S. wind exposure
+ca_earthquake,California Earthquake,geophysical,California earthquake exposure
+ca_wildfire,California Wildfire,wildfire,California wildfire and fire-following-earthquake where explicitly stated
+flood,Flood,weather,Flood peril
+severe_convective_storm,Severe Convective Storm,weather,Hail/tornado/severe thunderstorm group
+europe_windstorm,Europe Windstorm,weather,European windstorm
+japan_typhoon,Japan Typhoon,weather,Japan typhoon exposure
+earthquake,Earthquake,geophysical,Generic earthquake peril
+tropical_cyclone,Tropical Cyclone,weather,Generic tropical cyclone peril
+mortality,Mortality,life,Life/mortality-related risk
+cyber,Cyber,cyber,Cyber or cyber-aggregation structure
+other_property_cat,Other Property Cat,property,Other property catastrophe risk
