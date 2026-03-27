@@ -164,7 +164,14 @@ def test_build_watchlist_includes_ibtracs_events(tmp_path: Path):
 
 
 def test_build_watchlist_prefilter_keeps_generic_earthquake_crosswalk(tmp_path: Path):
-    settings = _settings(tmp_path)
+    settings = Settings(
+        user_agent="OpenCatWatch test",
+        timeout_seconds=5,
+        polite_delay_seconds=0.0,
+        sec_max_rps=1,
+        data_dir=(tmp_path / "data"),
+        as_of_date=date(2026, 1, 15),
+    )
     write_jsonl(
         settings.processed_dir / "registry" / "tranches.jsonl",
         [
@@ -221,6 +228,7 @@ def test_build_watchlist_prefilter_keeps_generic_earthquake_crosswalk(tmp_path: 
     assert matches[0]["tranche_id"] == "quake-1"
     assert matches[0]["event_id"] == "usgs-1"
     assert matches[0]["match_scope"] == "public"
+    assert matches[0]["generated_at"] == "2026-01-15T00:00:00Z"
 
 
 def test_build_site_data_uses_event_metadata_and_correct_maturity_kpi(tmp_path: Path):

@@ -38,6 +38,7 @@ def test_settings_dashboard_and_reports_paths_can_stay_in_workspace_when_data_di
 
     assert settings.dashboard_path == workspace_root / "apps" / "site" / "data" / "dashboard.json"
     assert settings.reports_dir == workspace_root / "reports"
+    assert settings.manual_dir == workspace_root / "data" / "manual"
 
 
 def test_resolve_data_dir_uses_shared_root_project_namespace_for_shared_workspace(
@@ -45,7 +46,7 @@ def test_resolve_data_dir_uses_shared_root_project_namespace_for_shared_workspac
 ):
     monkeypatch.delenv("OPENCATWATCH_DATA_DIR", raising=False)
     monkeypatch.setenv("PROJ_SHARED_DATA_ROOT", "/tmp/shared-data-root")
-    workspace_root = Path("/tmp/catwatch-workspace/catwatch")
+    workspace_root = Path("/tmp/catwatch")
 
     data_dir = _resolve_data_dir(workspace_root)
 
@@ -147,9 +148,10 @@ def test_audit_processed_data_stays_consistent_with_dashboard_counts(tmp_path: P
         polite_delay_seconds=0.0,
         sec_max_rps=1,
         data_dir=tmp_path / "data",
+        as_of_date=date(2026, 1, 15),
     )
     _write_manual_tables(settings)
-    soon = (date.today() + timedelta(days=90)).isoformat()
+    soon = "2026-04-15"
     write_jsonl(
         settings.processed_dir / "registry" / "tranches.jsonl",
         [
@@ -204,6 +206,7 @@ def test_audit_processed_data_stays_consistent_with_dashboard_counts(tmp_path: P
     output_path = Path(audit_processed_data(settings=settings))
     payload = read_json(output_path.with_suffix(".json"))
 
+    assert payload["generated_at"] == "2026-01-15T00:00:00Z"
     assert payload["counts"]["watchlist_matches"] == 2
     assert payload["counts"]["public_watchlist_matches"] == 1
     assert payload["counts"]["watchlist_review_candidates"] == 1
@@ -511,7 +514,22 @@ def test_validate_public_snapshot_rejects_candidate_rows_in_public_watchlist(tmp
     )
     write_json(
         settings.data_dir.parent / "reports" / "data_audit.json",
-        {"release_gate": {"failed_checks": []}},
+        {
+            "release_gate": {"failed_checks": []},
+            "counts": {
+                "public_watchlist_matches": 0,
+                "watchlist_review_candidates": 0,
+            },
+            "dashboard_consistency": {
+                "actual_next_12m_maturities": 0,
+                "actual_public_watchlist_matches": 0,
+                "actual_review_candidates": 0,
+                "actual_public_watchlist_blockers": 0,
+                "dashboard_public_watchlist_matches": 0,
+                "dashboard_review_candidates": 0,
+                "dashboard_public_watchlist_blockers": 0,
+            },
+        },
     )
 
     with pytest.raises(RuntimeError, match="dashboard_public_watchlist_only"):
@@ -519,9 +537,16 @@ def test_validate_public_snapshot_rejects_candidate_rows_in_public_watchlist(tmp
 
 
 def test_validate_public_snapshot_rejects_stale_dashboard_as_of(tmp_path: Path):
-    settings = _settings(tmp_path / "stale")
+    settings = Settings(
+        user_agent="OpenCatWatch test",
+        timeout_seconds=5,
+        polite_delay_seconds=0.0,
+        sec_max_rps=1,
+        data_dir=(tmp_path / "stale"),
+        as_of_date=date(2026, 2, 1),
+    )
     _write_manual_tables(settings)
-    stale_as_of = (date.today() - timedelta(days=21)).isoformat()
+    stale_as_of = "2026-01-11"
     write_json(
         settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
         {
@@ -545,11 +570,80 @@ def test_validate_public_snapshot_rejects_stale_dashboard_as_of(tmp_path: Path):
     )
     write_json(
         settings.data_dir.parent / "reports" / "data_audit.json",
-        {"release_gate": {"failed_checks": []}},
+        {
+            "release_gate": {"failed_checks": []},
+            "counts": {
+                "public_watchlist_matches": 0,
+                "watchlist_review_candidates": 0,
+            },
+            "dashboard_consistency": {
+                "actual_next_12m_maturities": 0,
+                "actual_public_watchlist_matches": 0,
+                "actual_review_candidates": 0,
+                "actual_public_watchlist_blockers": 0,
+                "dashboard_public_watchlist_matches": 0,
+                "dashboard_review_candidates": 0,
+                "dashboard_public_watchlist_blockers": 0,
+            },
+        },
     )
 
     with pytest.raises(RuntimeError, match="dashboard_current"):
         validate_public_snapshot(settings)
+
+
+def test_validate_public_snapshot_uses_settings_as_of_date_for_dashboard_age(tmp_path: Path):
+    settings = Settings(
+        user_agent="OpenCatWatch test",
+        timeout_seconds=5,
+        polite_delay_seconds=0.0,
+        sec_max_rps=1,
+        data_dir=(tmp_path / "as-of"),
+        as_of_date=date(2026, 2, 1),
+    )
+    _write_manual_tables(settings)
+    write_json(
+        settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
+        {
+            "demo_mode": False,
+            "as_of": "2026-01-20",
+            "kpis": {"next_12m_maturities": 0, "watchlist_matches": 0, "watchlist_review_candidates": 0},
+            "maturity_wall": [],
+            "watchlist": [],
+            "watchlist_review_candidates": [],
+            "watchlist_diagnostics": {
+                "public_match_count": 0,
+                "candidate_match_count": 0,
+                "public_rows_with_blockers": 0,
+                "candidate_reason_counts": [],
+                "public_blocker_counts": [],
+                "confidence_band_counts": [],
+                "top_candidate_families": [],
+            },
+            "limitations": ["Example Family: 1 missing sponsor evidence."],
+        },
+    )
+    write_json(
+        settings.data_dir.parent / "reports" / "data_audit.json",
+        {
+            "release_gate": {"failed_checks": []},
+            "counts": {
+                "public_watchlist_matches": 0,
+                "watchlist_review_candidates": 0,
+            },
+            "dashboard_consistency": {
+                "actual_next_12m_maturities": 0,
+                "actual_public_watchlist_matches": 0,
+                "actual_review_candidates": 0,
+                "actual_public_watchlist_blockers": 0,
+                "dashboard_public_watchlist_matches": 0,
+                "dashboard_review_candidates": 0,
+                "dashboard_public_watchlist_blockers": 0,
+            },
+        },
+    )
+
+    assert validate_public_snapshot(settings).endswith("reports/data_audit.json")
 
 
 def test_run_release_check_invokes_validate_public_snapshot(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):

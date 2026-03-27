@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime, time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -18,11 +18,9 @@ def _resolve_data_dir(workspace_root: Path) -> Path:
     shared_data_root = (os.getenv("PROJ_SHARED_DATA_ROOT") or "").strip()
     if shared_data_root:
         shared_root_path = Path(shared_data_root).expanduser()
-        try:
-            if workspace_root.resolve().is_relative_to(shared_root_path.parent.resolve()):
-                return shared_root_path / workspace_root.name / "data"
-        except FileNotFoundError:
-            pass
+        shared_workspace_root = shared_root_path.parent / workspace_root.name
+        if workspace_root.resolve() == shared_workspace_root.resolve():
+            return shared_root_path / workspace_root.name / "data"
 
     return Path("data")
 
@@ -54,7 +52,9 @@ class Settings:
 
     @property
     def manual_dir(self) -> Path:
-        return self.data_dir / "manual"
+        if self.workspace_root is None:
+            return self.data_dir / "manual"
+        return self.project_root / "data" / "manual"
 
     @property
     def dashboard_path(self) -> Path:
@@ -63,6 +63,10 @@ class Settings:
     @property
     def reports_dir(self) -> Path:
         return self.project_root / "reports"
+
+    @property
+    def as_of_timestamp(self) -> str:
+        return datetime.combine(self.as_of_date, time.min, tzinfo=UTC).isoformat().replace("+00:00", "Z")
 
 
 def get_settings() -> Settings:

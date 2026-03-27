@@ -170,7 +170,12 @@ def possible_overlap(tranche: dict[str, Any], event: dict[str, Any]) -> tuple[bo
     return True, reasons, min(score, 1.0)
 
 
-def build_match(tranche: dict[str, Any], event: dict[str, Any]) -> dict[str, Any] | None:
+def build_match(
+    tranche: dict[str, Any],
+    event: dict[str, Any],
+    *,
+    generated_at: str | None = None,
+) -> dict[str, Any] | None:
     matched, reasons, score = possible_overlap(tranche=tranche, event=event)
     if not matched:
         return None
@@ -204,5 +209,5 @@ def build_match(tranche: dict[str, Any], event: dict[str, Any]) -> dict[str, Any
         "candidate_reason_codes": candidate_reason_codes,
         "confidence_band": _confidence_band(score, match_scope, candidate_reason_codes),
         "tranche_issue_flags": tranche_issue_flags,
-        "generated_at": utcnow_iso(),
+        "generated_at": generated_at or utcnow_iso(),
     }

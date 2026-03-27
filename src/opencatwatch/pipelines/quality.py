@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 from collections import Counter, defaultdict
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from ..config import Settings
@@ -70,11 +70,11 @@ def _load_dashboard(settings: Settings) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
-def _dashboard_age_days(dashboard: dict) -> int | None:
+def _dashboard_age_days(dashboard: dict, *, reference_date: date) -> int | None:
     as_of = _to_date(dashboard.get("as_of"))
     if not as_of:
         return None
-    return max(0, (date.today() - as_of).days)
+    return max(0, (reference_date - as_of).days)
 
 
 def _has_real_user_agent(user_agent: str) -> bool:
@@ -407,7 +407,7 @@ def _build_release_checks(
     manual_tables: dict,
     public_limitations: list[str],
 ) -> list[dict]:
-    dashboard_age_days = _dashboard_age_days(dashboard)
+    dashboard_age_days = _dashboard_age_days(dashboard, reference_date=settings.as_of_date)
     manual_issue_count = len(manual_tables.get("issues", []))
     checks = [
         {
@@ -598,7 +598,7 @@ def collect_audit_payload(settings: Settings) -> dict:
     )
 
     return {
-        "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "generated_at": settings.as_of_timestamp,
         "counts": {
             "tranches": len(tranches),
             "material_tranches": len(material),
@@ -631,7 +631,7 @@ def collect_audit_payload(settings: Settings) -> dict:
             else None,
             "actual_public_watchlist_blockers": public_rows_with_blockers,
             "dashboard_demo_mode": bool(dashboard.get("demo_mode")) if dashboard else None,
-            "dashboard_age_days": _dashboard_age_days(dashboard),
+            "dashboard_age_days": _dashboard_age_days(dashboard, reference_date=settings.as_of_date),
         },
         "manual_evidence": manual_tables,
         "public_limitations": public_limitations,
@@ -750,7 +750,7 @@ def validate_public_snapshot(settings: Settings) -> str:
     elif dashboard.get("demo_mode"):
         snapshot_failures.append("dashboard_demo_mode")
     else:
-        dashboard_age_days = _dashboard_age_days(dashboard)
+        dashboard_age_days = _dashboard_age_days(dashboard, reference_date=settings.as_of_date)
         if dashboard_age_days is None or dashboard_age_days > RELEASE_THRESHOLDS["dashboard_max_age_days"]:
             snapshot_failures.append("dashboard_current")
         if not _dashboard_has_evidence_fields(dashboard):

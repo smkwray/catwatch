@@ -651,7 +651,7 @@ def build_watchlist(settings: Settings) -> str:
     matches = []
     for event in events:
         for tranche in _candidate_tranches_for_event(event, tranches_by_peril):
-            match = build_match(tranche=tranche, event=event)
+            match = build_match(tranche=tranche, event=event, generated_at=settings.as_of_timestamp)
             if match:
                 matches.append(match)
 
