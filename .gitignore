@@ -25,6 +25,7 @@ __pycache__/
 dist/
 build/
 ._*
+*.sync-conflict-*
 
 # Data outputs
 data/raw/**

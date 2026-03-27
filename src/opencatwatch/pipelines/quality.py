@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 from collections import Counter, defaultdict
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from ..config import Settings
@@ -19,7 +19,10 @@ RELEASE_THRESHOLDS = {
     "outstanding_missing_maturity": 40,
     "broad_peril_rows": 25,
     "dashboard_max_age_days": 14,
+    "public_watchlist_rows_with_blockers": 0,
 }
+
+_NON_GEOGRAPHIC_PERILS = {"cyber", "mortality"}
 
 _PLACEHOLDER_USER_AGENT_MARKERS = {
     "you@example.com",
@@ -32,11 +35,13 @@ _MANUAL_TABLE_SPECS = {
         "path": "sponsor_aliases.csv",
         "required_columns": ["alias", "sponsor_name", "source_url", "notes"],
         "row_label_field": "alias",
+        "duplicate_key_fields": ["alias"],
     },
     "tranche_overrides": {
         "path": "tranche_overrides.csv",
         "required_columns": ["tranche_name", "field_name", "override_value", "source_url", "notes"],
         "row_label_field": "tranche_name",
+        "duplicate_key_fields": ["tranche_name", "field_name"],
     },
 }
 
@@ -58,7 +63,7 @@ def _canonical_sponsor(row: dict) -> str | None:
 
 
 def _load_dashboard(settings: Settings) -> dict:
-    dashboard_path = settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json"
+    dashboard_path = settings.dashboard_path
     if not dashboard_path.exists():
         return {}
     payload = read_json(dashboard_path)
@@ -130,8 +135,35 @@ def _validate_manual_tables(settings: Settings) -> dict:
             summary[table_name]["issues"] += 1
             continue
 
+        seen_keys: dict[tuple[str, ...], tuple[int, str]] = {}
         for index, row in enumerate(rows, start=2):
             label = (row.get(spec["row_label_field"]) or "").strip() or table_name
+            duplicate_key_fields = spec.get("duplicate_key_fields") or []
+            if duplicate_key_fields:
+                key_parts: list[str] = []
+                for field_name in duplicate_key_fields:
+                    value = (row.get(field_name) or "").strip()
+                    if field_name in {"alias", "tranche_name"}:
+                        value = normalize_name(value)
+                    else:
+                        value = value.lower()
+                    key_parts.append(value)
+                if all(key_parts):
+                    key = tuple(key_parts)
+                    previous = seen_keys.get(key)
+                    if previous is not None:
+                        issues.append(
+                            {
+                                "table": table_name,
+                                "path": str(path),
+                                "row_number": index,
+                                "label": label,
+                                "issue": f"duplicate_row_key:first_seen_row_{previous[0]}:{previous[1]}",
+                            }
+                        )
+                        summary[table_name]["issues"] += 1
+                    else:
+                        seen_keys[key] = (index, label)
             if not (row.get("source_url") or "").strip():
                 issues.append(
                     {
@@ -170,21 +202,172 @@ def _validate_manual_tables(settings: Settings) -> dict:
     return {"summary": summary, "issues": issues}
 
 
+def _watchlist_rows_have_fields(rows: list[dict]) -> bool:
+    return all(
+        isinstance(row, dict)
+        and {
+            "source_url",
+            "reason_text",
+            "matched_tranche_rows",
+            "match_scope",
+            "public_blockers",
+            "candidate_reason_codes",
+            "confidence_band",
+        }
+        <= set(row)
+        for row in rows[:5]
+    )
+
+
 def _dashboard_has_evidence_fields(dashboard: dict) -> bool:
     maturity_rows = dashboard.get("maturity_wall") or []
     watchlist_rows = dashboard.get("watchlist") or []
+    candidate_rows = dashboard.get("watchlist_review_candidates") or []
 
     maturity_ok = all(
         isinstance(row, dict)
-        and {"source_url", "sponsor_source_url", "sponsor_source_type", "review_status"} <= set(row)
+        and {
+            "source_url",
+            "sponsor_source_url",
+            "sponsor_source_type",
+            "review_status",
+            "peril_source_type",
+            "region_source_type",
+            "maturity_source_type",
+        }
+        <= set(row)
         for row in maturity_rows[:5]
     )
-    watchlist_ok = all(
-        isinstance(row, dict)
-        and {"source_url", "reason_text", "matched_tranche_rows"} <= set(row)
-        for row in watchlist_rows[:5]
+    return maturity_ok and _watchlist_rows_have_fields(watchlist_rows) and _watchlist_rows_have_fields(candidate_rows)
+
+
+def _dashboard_watchlist_is_public_only(dashboard: dict) -> bool:
+    watchlist_rows = dashboard.get("watchlist") or []
+    candidate_rows = dashboard.get("watchlist_review_candidates") or []
+    public_ok = all(row.get("match_scope") == "public" for row in watchlist_rows[:50])
+    candidates_ok = all(row.get("match_scope") == "candidate" for row in candidate_rows[:25])
+    blocker_ok = all(not (row.get("public_blockers") or []) for row in watchlist_rows[:50])
+    return public_ok and candidates_ok and blocker_ok
+
+
+def _dashboard_has_watchlist_diagnostics(dashboard: dict) -> bool:
+    diagnostics = dashboard.get("watchlist_diagnostics") or {}
+    limitations = dashboard.get("limitations")
+    if not isinstance(limitations, list):
+        return False
+    required_keys = {
+        "public_match_count",
+        "candidate_match_count",
+        "public_rows_with_blockers",
+        "candidate_reason_counts",
+        "public_blocker_counts",
+        "confidence_band_counts",
+        "top_candidate_families",
+    }
+    return isinstance(diagnostics, dict) and required_keys <= set(diagnostics)
+
+
+def _dashboard_public_match_count(dashboard: dict) -> int:
+    watchlist_rows = dashboard.get("watchlist") or []
+    return sum(int(row.get("exact_match_count") or 0) for row in watchlist_rows if isinstance(row, dict))
+
+
+def _dashboard_candidate_match_count(dashboard: dict) -> int:
+    candidate_rows = dashboard.get("watchlist_review_candidates") or []
+    return sum(int(row.get("matched_tranche_count") or 0) for row in candidate_rows if isinstance(row, dict))
+
+
+def _dashboard_public_blocker_count(dashboard: dict) -> int:
+    watchlist_rows = dashboard.get("watchlist") or []
+    return sum(1 for row in watchlist_rows if isinstance(row, dict) and row.get("public_blockers"))
+
+
+def _dashboard_next_12m_maturity_count(dashboard: dict) -> int | None:
+    as_of = _to_date(dashboard.get("as_of"))
+    if not as_of:
+        return None
+    horizon = as_of + timedelta(days=365)
+    maturity_rows = dashboard.get("maturity_wall") or []
+    return sum(
+        1
+        for row in maturity_rows
+        if isinstance(row, dict)
+        and (maturity_date := _to_date(row.get("maturity_date")))
+        and as_of <= maturity_date <= horizon
     )
-    return maturity_ok and watchlist_ok
+
+
+def _snapshot_kpi_mismatches(dashboard: dict) -> list[str]:
+    kpis = dashboard.get("kpis") or {}
+    diagnostics = dashboard.get("watchlist_diagnostics") or {}
+    mismatches: list[str] = []
+    watchlist_rows = dashboard.get("watchlist") or []
+    candidate_rows = dashboard.get("watchlist_review_candidates") or []
+
+    expected_next_12m = _dashboard_next_12m_maturity_count(dashboard)
+    maturity_wall_rows = dashboard.get("maturity_wall") or []
+    maturity_wall_truncated = len(maturity_wall_rows) >= 200
+    if expected_next_12m is not None and (not maturity_wall_truncated) and kpis.get("next_12m_maturities") != expected_next_12m:
+        mismatches.append("next_12m_maturities")
+
+    public_match_count = diagnostics.get("public_match_count")
+    if kpis.get("watchlist_matches") != public_match_count:
+        mismatches.append("watchlist_matches")
+    if len(watchlist_rows) < 50 and public_match_count != len(watchlist_rows):
+        mismatches.append("watchlist_diagnostics.public_match_count")
+    if public_match_count is not None and public_match_count < len(watchlist_rows):
+        mismatches.append("watchlist_diagnostics.public_match_count")
+
+    candidate_match_count = diagnostics.get("candidate_match_count")
+    if kpis.get("watchlist_review_candidates") != candidate_match_count:
+        mismatches.append("watchlist_review_candidates")
+    if len(candidate_rows) < 25 and candidate_match_count != len(candidate_rows):
+        mismatches.append("watchlist_diagnostics.candidate_match_count")
+    if candidate_match_count is not None and candidate_match_count < len(candidate_rows):
+        mismatches.append("watchlist_diagnostics.candidate_match_count")
+
+    public_blocker_count = _dashboard_public_blocker_count(dashboard)
+    if public_blocker_count and diagnostics.get("public_rows_with_blockers") != public_blocker_count:
+        mismatches.append("watchlist_diagnostics.public_rows_with_blockers")
+
+    return mismatches
+
+
+def _snapshot_audit_divergences(dashboard: dict, audit_payload: dict) -> list[str]:
+    kpis = dashboard.get("kpis") or {}
+    diagnostics = dashboard.get("watchlist_diagnostics") or {}
+    counts = audit_payload.get("counts") or {}
+    consistency = audit_payload.get("dashboard_consistency") or {}
+    divergences: list[str] = []
+
+    if consistency.get("actual_next_12m_maturities") != kpis.get("next_12m_maturities"):
+        divergences.append("next_12m_maturities")
+    if counts.get("public_watchlist_matches") != kpis.get("watchlist_matches"):
+        divergences.append("watchlist_matches")
+    if counts.get("watchlist_review_candidates") != kpis.get("watchlist_review_candidates"):
+        divergences.append("watchlist_review_candidates")
+    if counts.get("public_watchlist_matches") != diagnostics.get("public_match_count"):
+        divergences.append("watchlist_diagnostics.public_match_count")
+    if counts.get("watchlist_review_candidates") != diagnostics.get("candidate_match_count"):
+        divergences.append("watchlist_diagnostics.candidate_match_count")
+    if consistency.get("actual_public_watchlist_blockers") != diagnostics.get("public_rows_with_blockers"):
+        divergences.append("watchlist_diagnostics.public_rows_with_blockers")
+    if consistency.get("dashboard_public_watchlist_matches") != kpis.get("watchlist_matches"):
+        divergences.append("dashboard_public_watchlist_matches")
+    if consistency.get("dashboard_review_candidates") != kpis.get("watchlist_review_candidates"):
+        divergences.append("dashboard_review_candidates")
+    if consistency.get("dashboard_public_watchlist_blockers") != diagnostics.get("public_rows_with_blockers"):
+        divergences.append("dashboard_public_watchlist_blockers")
+
+    return divergences
+
+
+def _match_scope(match: dict) -> str:
+    scope = match.get("match_scope")
+    if scope in {"public", "candidate"}:
+        return str(scope)
+    reasons = set(match.get("reasons") or [])
+    return "public" if {"peril_match", "active_date_overlap", "region_overlap"} <= reasons else "candidate"
 
 
 def _public_limitations(material: list[dict]) -> list[str]:
@@ -193,7 +376,7 @@ def _public_limitations(material: list[dict]) -> list[str]:
         family = _family_name(row)
         if not _canonical_sponsor(row):
             families[family]["missing sponsor evidence"] += 1
-        if not row.get("region_codes"):
+        if _requires_region_evidence(row) and not row.get("region_codes"):
             families[family]["missing region evidence"] += 1
         if "other_property_cat" in (row.get("peril_codes") or []):
             families[family]["broad peril classification"] += 1
@@ -257,6 +440,14 @@ def _build_release_checks(
             "detail": "Registry rows still using other_property_cat.",
         },
         {
+            "name": "public_watchlist_rows_with_blockers",
+            "passed": int(issues.get("public_watchlist_rows_with_blockers", 0))
+            <= RELEASE_THRESHOLDS["public_watchlist_rows_with_blockers"],
+            "actual": issues.get("public_watchlist_rows_with_blockers", 0),
+            "target": f"<={RELEASE_THRESHOLDS['public_watchlist_rows_with_blockers']}",
+            "detail": "Public watchlist rows should not carry tranche-side evidence blockers.",
+        },
+        {
             "name": "dashboard_not_demo",
             "passed": bool(dashboard) and not bool(dashboard.get("demo_mode")),
             "actual": bool(dashboard) and not bool(dashboard.get("demo_mode")),
@@ -276,6 +467,20 @@ def _build_release_checks(
             "actual": _dashboard_has_evidence_fields(dashboard),
             "target": True,
             "detail": "Dashboard payload exposes evidence-facing fields for site rendering.",
+        },
+        {
+            "name": "dashboard_public_watchlist_only",
+            "passed": _dashboard_watchlist_is_public_only(dashboard),
+            "actual": _dashboard_watchlist_is_public_only(dashboard),
+            "target": True,
+            "detail": "Public dashboard watchlist excludes internal review candidates.",
+        },
+        {
+            "name": "dashboard_watchlist_diagnostics",
+            "passed": _dashboard_has_watchlist_diagnostics(dashboard),
+            "actual": _dashboard_has_watchlist_diagnostics(dashboard),
+            "target": True,
+            "detail": "Dashboard payload exposes candidate diagnostics and limitations for the public watchlist split.",
         },
         {
             "name": "manual_evidence_metadata",
@@ -309,13 +514,17 @@ def collect_audit_payload(settings: Settings) -> dict:
     dashboard = _load_dashboard(settings)
     manual_tables = _validate_manual_tables(settings)
 
-    as_of = date.today()
+    as_of = settings.as_of_date
     horizon = as_of + timedelta(days=365)
     material = [row for row in tranches if not row.get("is_programme_shell")]
     sponsor_rows = [row for row in material if _canonical_sponsor(row)]
-    region_rows = [row for row in material if row.get("region_codes")]
+    region_required_rows = [row for row in material if _requires_region_evidence(row)]
+    region_rows = [row for row in region_required_rows if row.get("region_codes")]
+    public_matches = [row for row in matches if _match_scope(row) == "public"]
+    candidate_matches = [row for row in matches if _match_scope(row) == "candidate"]
     broad_matches = [row for row in matches if "broad_peril_match" in (row.get("reasons") or [])]
     unknown_region_matches = [row for row in matches if "region_unknown" in (row.get("reasons") or [])]
+    public_rows_with_blockers = sum(1 for row in public_matches if row.get("public_blockers"))
     actual_next_12m = sum(
         1
         for row in material
@@ -329,7 +538,7 @@ def collect_audit_payload(settings: Settings) -> dict:
         issues_for_row: list[str] = []
         if not _canonical_sponsor(row):
             issues_for_row.append("missing_sponsor")
-        if not row.get("region_codes"):
+        if _requires_region_evidence(row) and not row.get("region_codes"):
             issues_for_row.append("missing_region")
         if "other_property_cat" in (row.get("peril_codes") or []):
             issues_for_row.append("broad_peril")
@@ -357,17 +566,22 @@ def collect_audit_payload(settings: Settings) -> dict:
 
     coverage = {
         "sponsor_coverage_pct": round((len(sponsor_rows) / len(material) * 100.0), 2) if material else 0.0,
-        "region_coverage_pct": round((len(region_rows) / len(material) * 100.0), 2) if material else 0.0,
+        "region_coverage_pct": round((len(region_rows) / len(region_required_rows) * 100.0), 2)
+        if region_required_rows
+        else 100.0,
         "identified_sponsors": len({_canonical_sponsor(row) for row in material if _canonical_sponsor(row)}),
         "inferred_region_rows": sum(
             1
-            for row in material
+            for row in region_required_rows
             if row.get("region_inference_method") not in {None, "missing", "explicit_text"}
         ),
     }
     issue_counts = {
         "broad_peril_matches": len(broad_matches),
         "unknown_region_matches": len(unknown_region_matches),
+        "watchlist_review_candidates": len(candidate_matches),
+        "public_watchlist_rows_with_blockers": public_rows_with_blockers,
+        "candidate_match_ratio_pct": round((len(candidate_matches) / len(matches) * 100.0), 2) if matches else 0.0,
         "outstanding_missing_maturity": sum(
             1 for row in material if row.get("status") == "outstanding" and not row.get("maturity_date")
         ),
@@ -384,12 +598,14 @@ def collect_audit_payload(settings: Settings) -> dict:
     )
 
     return {
-        "generated_at": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+        "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "counts": {
             "tranches": len(tranches),
             "material_tranches": len(material),
             "programme_shells": sum(1 for row in tranches if row.get("is_programme_shell")),
             "watchlist_matches": len(matches),
+            "public_watchlist_matches": len(public_matches),
+            "watchlist_review_candidates": len(candidate_matches),
             "watchlist_events": len(events),
         },
         "coverage": coverage,
@@ -402,6 +618,18 @@ def collect_audit_payload(settings: Settings) -> dict:
             "next_12m_gap": (((dashboard.get("kpis") or {}).get("next_12m_maturities", 0)) - actual_next_12m)
             if dashboard
             else None,
+            "dashboard_public_watchlist_matches": ((dashboard.get("kpis") or {}).get("watchlist_matches"))
+            if dashboard
+            else None,
+            "actual_public_watchlist_matches": len(public_matches),
+            "dashboard_review_candidates": ((dashboard.get("kpis") or {}).get("watchlist_review_candidates"))
+            if dashboard
+            else None,
+            "actual_review_candidates": len(candidate_matches),
+            "dashboard_public_watchlist_blockers": ((dashboard.get("watchlist_diagnostics") or {}).get("public_rows_with_blockers"))
+            if dashboard
+            else None,
+            "actual_public_watchlist_blockers": public_rows_with_blockers,
             "dashboard_demo_mode": bool(dashboard.get("demo_mode")) if dashboard else None,
             "dashboard_age_days": _dashboard_age_days(dashboard),
         },
@@ -445,6 +673,8 @@ def _render_markdown(payload: dict) -> str:
             f"- Material tranches: {counts.get('material_tranches', 0)}",
             f"- Programme shells: {counts.get('programme_shells', 0)}",
             f"- Watchlist matches: {counts.get('watchlist_matches', 0)}",
+            f"- Public watchlist matches: {counts.get('public_watchlist_matches', 0)}",
+            f"- Watchlist review candidates: {counts.get('watchlist_review_candidates', 0)}",
             f"- Watchlist events: {counts.get('watchlist_events', 0)}",
             "",
             "## Coverage",
@@ -458,6 +688,9 @@ def _render_markdown(payload: dict) -> str:
             "",
             f"- Broad peril matches: {issues.get('broad_peril_matches', 0)}",
             f"- Unknown-region matches: {issues.get('unknown_region_matches', 0)}",
+            f"- Watchlist review candidates: {issues.get('watchlist_review_candidates', 0)}",
+            f"- Public watchlist rows with blockers: {issues.get('public_watchlist_rows_with_blockers', 0)}",
+            f"- Candidate match ratio (%): {issues.get('candidate_match_ratio_pct', 0.0)}",
             f"- Outstanding rows without maturity: {issues.get('outstanding_missing_maturity', 0)}",
             f"- Broad peril rows in registry: {issues.get('broad_peril_rows', 0)}",
             "",
@@ -466,6 +699,12 @@ def _render_markdown(payload: dict) -> str:
             f"- Actual next 12m maturities: {dashboard.get('actual_next_12m_maturities', 0)}",
             f"- Dashboard next 12m maturities: {dashboard.get('dashboard_next_12m_maturities', 0)}",
             f"- Gap: {dashboard.get('next_12m_gap', 0)}",
+            f"- Actual public watchlist matches: {dashboard.get('actual_public_watchlist_matches', 0)}",
+            f"- Dashboard public watchlist matches: {dashboard.get('dashboard_public_watchlist_matches', 0)}",
+            f"- Actual review candidates: {dashboard.get('actual_review_candidates', 0)}",
+            f"- Dashboard review candidates: {dashboard.get('dashboard_review_candidates', 0)}",
+            f"- Actual public watchlist blockers: {dashboard.get('actual_public_watchlist_blockers', 0)}",
+            f"- Dashboard public watchlist blockers: {dashboard.get('dashboard_public_watchlist_blockers', 0)}",
             f"- Demo mode: {dashboard.get('dashboard_demo_mode')}",
             f"- Dashboard age (days): {dashboard.get('dashboard_age_days')}",
             "",
@@ -491,11 +730,46 @@ def _render_markdown(payload: dict) -> str:
 
 def audit_processed_data(settings: Settings) -> str:
     payload = collect_audit_payload(settings)
-    reports_dir = settings.data_dir.parent / "reports"
+    reports_dir = settings.reports_dir
     reports_dir.mkdir(parents=True, exist_ok=True)
     write_json(reports_dir / "data_audit.json", payload)
     (reports_dir / "data_audit.md").write_text(_render_markdown(payload), encoding="utf-8")
     return str(reports_dir / "data_audit.md")
+
+
+def validate_public_snapshot(settings: Settings) -> str:
+    dashboard = _load_dashboard(settings)
+    audit_path = settings.reports_dir / "data_audit.json"
+    if not audit_path.exists():
+        raise RuntimeError("missing committed audit snapshot: reports/data_audit.json")
+    payload = read_json(audit_path)
+    failed_checks = (payload.get("release_gate") or {}).get("failed_checks") or []
+    snapshot_failures: list[str] = []
+    if not dashboard:
+        snapshot_failures.append("missing_dashboard")
+    elif dashboard.get("demo_mode"):
+        snapshot_failures.append("dashboard_demo_mode")
+    else:
+        dashboard_age_days = _dashboard_age_days(dashboard)
+        if dashboard_age_days is None or dashboard_age_days > RELEASE_THRESHOLDS["dashboard_max_age_days"]:
+            snapshot_failures.append("dashboard_current")
+        if not _dashboard_has_evidence_fields(dashboard):
+            snapshot_failures.append("dashboard_evidence_fields")
+        if not _dashboard_watchlist_is_public_only(dashboard):
+            snapshot_failures.append("dashboard_public_watchlist_only")
+        if not _dashboard_has_watchlist_diagnostics(dashboard):
+            snapshot_failures.append("dashboard_watchlist_diagnostics")
+        kpi_mismatches = _snapshot_kpi_mismatches(dashboard)
+        if kpi_mismatches:
+            snapshot_failures.append(f"dashboard_kpi_mismatch:{','.join(kpi_mismatches)}")
+        audit_divergences = _snapshot_audit_divergences(dashboard, payload)
+        if audit_divergences:
+            snapshot_failures.append(f"dashboard_audit_divergence:{','.join(audit_divergences)}")
+    if failed_checks:
+        snapshot_failures.append(f"audit_release_gate:{','.join(failed_checks)}")
+    if snapshot_failures:
+        raise RuntimeError("public snapshot validation failed: " + "; ".join(snapshot_failures))
+    return str(audit_path)
 
 
 def run_release_check(settings: Settings) -> str:
@@ -525,6 +799,7 @@ def run_release_check(settings: Settings) -> str:
     build_site_data(settings=settings)
     audit_path = audit_processed_data(settings=settings)
     build_manual_review_queue(settings=settings)
+    validate_public_snapshot(settings=settings)
 
     payload = read_json(Path(audit_path).with_suffix(".json"))
     failed_checks = (payload.get("release_gate") or {}).get("failed_checks") or []
@@ -535,9 +810,19 @@ def run_release_check(settings: Settings) -> str:
 
 def build_manual_review_queue(settings: Settings, limit: int = 250) -> str:
     tranches = read_jsonl(settings.processed_dir / "registry" / "tranches.jsonl")
+    audit_payload = collect_audit_payload(settings)
+    tranche_priority_order = {
+        row.get("tranche_name") or "": index
+        for index, row in enumerate(audit_payload.get("top_review_candidates", []))
+    }
+    family_priority_order = {
+        limitation.split(":", 1)[0].strip(): index
+        for index, limitation in enumerate(audit_payload.get("public_limitations", []))
+    }
     queue_rows: list[dict[str, str | int]] = []
     for row in tranches:
         is_programme_shell = bool(row.get("is_programme_shell"))
+        family_name = _family_name(row)
         issues: list[str] = []
         actions: list[str] = []
         if is_programme_shell:
@@ -546,7 +831,7 @@ def build_manual_review_queue(settings: Settings, limit: int = 250) -> str:
         if not _canonical_sponsor(row):
             issues.append("missing_sponsor")
             actions.append("look for sponsor in SEC/BMA/manual overrides")
-        if not row.get("region_codes"):
+        if _requires_region_evidence(row) and not row.get("region_codes"):
             issues.append("missing_region")
             actions.append("set region_codes via manual override or issuer geography")
         if "other_property_cat" in (row.get("peril_codes") or []):
@@ -568,6 +853,7 @@ def build_manual_review_queue(settings: Settings, limit: int = 250) -> str:
                 "priority": priority,
                 "is_programme_shell": is_programme_shell,
                 "tranche_name": row.get("tranche_name") or "",
+                "family_name": family_name,
                 "record_type": row.get("record_type") or "",
                 "status": row.get("status") or "",
                 "issues": "; ".join(issues),
@@ -583,6 +869,8 @@ def build_manual_review_queue(settings: Settings, limit: int = 250) -> str:
     queue_rows.sort(
         key=lambda row: (
             int(bool(row["is_programme_shell"])),
+            tranche_priority_order.get(str(row["tranche_name"]), 10_000),
+            family_priority_order.get(str(row["family_name"]), 10_000),
             -int(row["priority"]),
             normalize_name(str(row["tranche_name"])),
         )
@@ -595,6 +883,7 @@ def build_manual_review_queue(settings: Settings, limit: int = 250) -> str:
             fieldnames=[
                 "priority",
                 "tranche_name",
+                "family_name",
                 "record_type",
                 "status",
                 "issues",
@@ -613,3 +902,10 @@ def build_manual_review_queue(settings: Settings, limit: int = 250) -> str:
             row.pop("is_programme_shell", None)
             writer.writerow(row)
     return str(output_path)
+
+
+def _requires_region_evidence(row: dict) -> bool:
+    peril_codes = set(row.get("peril_codes") or [])
+    if not peril_codes:
+        return True
+    return not peril_codes.issubset(_NON_GEOGRAPHIC_PERILS)

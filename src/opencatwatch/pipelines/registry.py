@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import re
 from datetime import date
 from pathlib import Path
 
@@ -137,6 +138,17 @@ _OVERRIDE_FIELDS = {
     "risk_end_date",
 }
 
+_FIELD_PROVENANCE_KEYS = {
+    "peril_codes": ("peril_source_type", "peril_source_url", "peril_source_note"),
+    "region_codes": ("region_source_type", "region_source_url", "region_source_note"),
+    "maturity_date": ("maturity_source_type", "maturity_source_url", "maturity_source_note"),
+}
+
+_BMA_AUTO_ACCEPT_SCORE = 0.88
+_BMA_AUTO_ACCEPT_MARGIN = 0.12
+_SEC_AUTO_ACCEPT_SCORE = 0.85
+_SEC_AUTO_ACCEPT_MARGIN = 0.1
+
 
 def _parse_json_list(value: str | None) -> list[str]:
     if not value:
@@ -210,11 +222,11 @@ def _status_from_listing(listing_status: str | None) -> str:
     return lower.replace(" ", "_")
 
 
-def _derive_status(listing_status: str | None, maturity_date: str | None) -> str:
+def _derive_status(listing_status: str | None, maturity_date: str | None, *, as_of: date) -> str:
     status = _status_from_listing(listing_status)
     if maturity_date:
         try:
-            if date.fromisoformat(maturity_date[:10]) < date.today():
+            if date.fromisoformat(maturity_date[:10]) < as_of:
                 return "matured"
         except ValueError:
             pass
@@ -222,7 +234,8 @@ def _derive_status(listing_status: str | None, maturity_date: str | None) -> str
 
 
 def _infer_record_type(title: str, maturity_date: str | None) -> str:
-    lower = f" {title.lower()} "
+    lower = re.sub(r"[^a-z0-9]+", " ", title.lower())
+    lower = f" {lower} "
     has_programme = " programme " in lower or " program " in lower
     has_tranche_marker = any(marker in lower for marker in (" series ", " class ", " tranche ", " due "))
     if has_programme and not has_tranche_marker and not maturity_date:
@@ -230,14 +243,18 @@ def _infer_record_type(title: str, maturity_date: str | None) -> str:
     return "tranche"
 
 
-def _load_manual_overrides(path: Path) -> dict[tuple[str, str], str]:
+def _load_manual_overrides(path: Path) -> dict[tuple[str, str], dict[str, str | None]]:
     if not path.exists():
         return {}
     with path.open("r", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
         rows = list(reader)
     return {
-        (row["tranche_name"].strip(), row["field_name"].strip()): row["override_value"].strip()
+        (row["tranche_name"].strip(), row["field_name"].strip()): {
+            "override_value": (row.get("override_value") or "").strip(),
+            "source_url": (row.get("source_url") or "").strip() or None,
+            "notes": (row.get("notes") or "").strip() or None,
+        }
         for row in rows
         if row.get("tranche_name") and row.get("field_name")
     }
@@ -307,53 +324,185 @@ def _index_bma_rows(rows: list[dict]) -> dict[str, list[dict]]:
     return indexed
 
 
-def _resolve_bma_match(issuer_name: str | None, bma_by_name: dict[str, list[dict]]) -> tuple[list[dict], dict | None]:
+def _index_bma_review_candidates(rows: list[dict]) -> dict[str, list[dict]]:
+    indexed: dict[str, list[dict]] = {}
+    for row in rows:
+        key = row.get("query_name_normalized") or normalize_bma_name(row.get("query_name"))
+        if not key:
+            continue
+        indexed.setdefault(key, []).append(row)
+    for key, candidates in indexed.items():
+        indexed[key] = sorted(
+            candidates,
+            key=lambda row: (
+                -float(row.get("candidate_score") or 0.0),
+                int(row.get("candidate_rank") or 9999),
+                row.get("matched_name") or "",
+            ),
+        )
+    return indexed
+
+
+def _top_margin(candidates: list[dict], score_key: str) -> float | None:
+    if len(candidates) < 2:
+        return None
+    top = float(candidates[0].get(score_key) or 0.0)
+    second = float(candidates[1].get(score_key) or 0.0)
+    return round(top - second, 3)
+
+
+def _should_auto_accept_ranked_candidate(
+    candidates: list[dict],
+    *,
+    score_key: str,
+    min_score: float,
+    min_margin: float,
+) -> bool:
+    if not candidates:
+        return False
+    top_score = float(candidates[0].get(score_key) or 0.0)
+    if top_score < min_score:
+        return False
+    margin = _top_margin(candidates, score_key)
+    if margin is None:
+        return True
+    return margin >= min_margin
+
+
+def _resolve_bma_match(
+    issuer_name: str | None,
+    bma_by_name: dict[str, list[dict]],
+    bma_review_by_name: dict[str, list[dict]],
+) -> tuple[list[dict], dict | None, str, list[dict]]:
     issuer_norm = normalize_bma_name(issuer_name)
     if not issuer_norm:
-        return [], None
+        return [], None, "missing", []
 
     candidates = bma_by_name.get(issuer_norm, [])
-    if not candidates:
-        return [], None
+    ranked_candidates = bma_review_by_name.get(issuer_norm, [])
 
     exact_candidates = [
-        row for row in candidates if (row.get("matched_name_normalized") or normalize_bma_name(row.get("matched_name"))) == issuer_norm
+        row
+        for row in candidates
+        if (row.get("matched_name_normalized") or normalize_bma_name(row.get("matched_name"))) == issuer_norm
     ]
     preferred_candidates = exact_candidates or candidates
 
     distinct_matches: dict[str, dict] = {}
     for row in preferred_candidates:
-        key = normalize_name(row.get("matched_name")) or row.get("matched_name_normalized") or normalize_bma_name(row.get("matched_name"))
+        key = (
+            normalize_name(row.get("matched_name"))
+            or row.get("matched_name_normalized")
+            or normalize_bma_name(row.get("matched_name"))
+        )
         if key and key not in distinct_matches:
             distinct_matches[key] = row
 
     if len(distinct_matches) == 1:
-        return preferred_candidates, next(iter(distinct_matches.values()))
-    return preferred_candidates, None
+        return preferred_candidates, next(iter(distinct_matches.values())), "exact", ranked_candidates
+
+    if _should_auto_accept_ranked_candidate(
+        ranked_candidates,
+        score_key="candidate_score",
+        min_score=_BMA_AUTO_ACCEPT_SCORE,
+        min_margin=_BMA_AUTO_ACCEPT_MARGIN,
+    ):
+        return candidates, ranked_candidates[0], "ranked_auto", ranked_candidates
+
+    if preferred_candidates or ranked_candidates:
+        return preferred_candidates or candidates, None, "manual_review", ranked_candidates
+    return [], None, "missing", []
 
 
-def _index_sec_spv_links(rows: list[dict]) -> dict[str, dict]:
-    indexed: dict[str, dict] = {}
+def _index_sec_spv_links(rows: list[dict]) -> dict[str, list[dict]]:
+    indexed: dict[str, list[dict]] = {}
     for row in rows:
         key = row.get("spv_name_normalized") or normalize_name(row.get("spv_name"))
-        if key and key not in indexed:
-            indexed[key] = row
+        if key:
+            indexed.setdefault(key, []).append(row)
     return indexed
 
 
-def _resolve_sec_sponsor(issuer_name: str | None, sec_by_spv: dict[str, dict]) -> dict | None:
+def _dedupe_sec_candidates(rows: list[dict]) -> list[dict]:
+    deduped: dict[tuple[str, str, str], dict] = {}
+    for row in rows:
+        key = (
+            str(row.get("sponsor_name") or ""),
+            str(row.get("spv_name") or ""),
+            str(row.get("source_filing_url") or ""),
+        )
+        existing = deduped.get(key)
+        if not existing or float(row.get("candidate_score") or 0.0) > float(existing.get("candidate_score") or 0.0):
+            deduped[key] = row
+    return sorted(
+        deduped.values(),
+        key=lambda row: (
+            -float(row.get("candidate_score") or 0.0),
+            row.get("spv_name") or "",
+            row.get("sponsor_name") or "",
+            row.get("source_filing_url") or "",
+        ),
+    )
+
+
+def _score_sec_spv_candidate(issuer_name: str, spv_name: str) -> float:
+    issuer_norm = normalize_name(issuer_name)
+    spv_norm = normalize_name(spv_name)
+    if not issuer_norm or not spv_norm:
+        return 0.0
+    if issuer_norm == spv_norm:
+        return 1.0
+    issuer_tokens = set(issuer_norm.split())
+    spv_tokens = set(spv_norm.split())
+    if not issuer_tokens or not spv_tokens:
+        return 0.0
+    overlap = len(issuer_tokens & spv_tokens)
+    if not overlap:
+        return 0.0
+    coverage = overlap / len(issuer_tokens)
+    precision = overlap / len(spv_tokens)
+    containment_bonus = 0.1 if issuer_norm in spv_norm or spv_norm in issuer_norm else 0.0
+    score = min(0.99, (0.6 * coverage) + (0.3 * precision) + containment_bonus)
+    return round(score, 3)
+
+
+def _resolve_sec_sponsor(issuer_name: str | None, sec_by_spv: dict[str, list[dict]]) -> tuple[dict | None, str, list[dict]]:
     if not issuer_name or not sec_by_spv:
-        return None
+        return None, "missing", []
     issuer_norm = normalize_name(issuer_name)
     if not issuer_norm:
-        return None
+        return None, "missing", []
     # Exact match first
     if issuer_norm in sec_by_spv:
-        return sec_by_spv[issuer_norm]
-    for spv_norm, link in sec_by_spv.items():
-        if spv_norm in issuer_norm or issuer_norm in spv_norm:
-            return link
-    return None
+        exact_rows = _dedupe_sec_candidates(sec_by_spv[issuer_norm])
+        distinct_sponsors = {str(row.get("sponsor_name") or "").strip() for row in exact_rows if row.get("sponsor_name")}
+        if len(distinct_sponsors) == 1:
+            return exact_rows[0], "exact", exact_rows
+        return None, "manual_review", exact_rows
+
+    scored: list[dict] = []
+    for spv_norm, links in sec_by_spv.items():
+        score = _score_sec_spv_candidate(issuer_name, spv_norm)
+        if score < 0.55:
+            continue
+        for link in links:
+            scored.append(
+                {
+                    **link,
+                    "candidate_score": score,
+                }
+            )
+    scored = _dedupe_sec_candidates(scored)
+    if _should_auto_accept_ranked_candidate(
+        scored,
+        score_key="candidate_score",
+        min_score=_SEC_AUTO_ACCEPT_SCORE,
+        min_margin=_SEC_AUTO_ACCEPT_MARGIN,
+    ):
+        return scored[0], "ranked_auto", scored
+    if scored:
+        return None, "manual_review", scored
+    return None, "missing", []
 
 
 def _resolve_sponsor_alias(
@@ -390,9 +539,66 @@ def _apply_override(tranche: dict, field: str, value: str) -> None:
         tranche[field] = value
 
 
+def _apply_field_provenance(
+    tranche: dict,
+    field: str,
+    source_type: str,
+    source_url: str | None,
+    note: str | None = None,
+) -> None:
+    keys = _FIELD_PROVENANCE_KEYS.get(field)
+    if not keys:
+        return
+    type_key, url_key, note_key = keys
+    tranche[type_key] = source_type
+    tranche[url_key] = source_url
+    tranche[note_key] = note
+
+
+def _should_apply_alias_region_codes(tranche: dict, sponsor_alias: dict) -> bool:
+    alias_regions = sponsor_alias.get("region_codes") or []
+    if not alias_regions:
+        return False
+    return tranche.get("region_inference_method") in {"missing", "issuer_hint", "peril_hint"}
+
+
+def _should_apply_alias_peril_codes(tranche: dict, sponsor_alias: dict) -> bool:
+    alias_perils = sponsor_alias.get("peril_codes") or []
+    if not alias_perils:
+        return False
+    return tranche.get("peril_inference_method") in {"fallback_other_property_cat", "issuer_hint"}
+
+
+def _refresh_region_from_current_perils(
+    tranche: dict,
+    *,
+    title: str,
+    sponsor_name: str | None,
+    issuer_name: str | None,
+    source_url: str | None,
+) -> None:
+    region_codes, region_method = _default_regions(
+        title=title,
+        sponsor_name=sponsor_name,
+        issuer_name=issuer_name,
+        peril_codes=tranche.get("peril_codes") or [],
+    )
+    tranche["region_codes"] = region_codes
+    tranche["region_inference_method"] = region_method
+    if region_codes:
+        tranche["region_source_type"] = region_method
+        tranche["region_source_url"] = source_url
+        tranche["region_source_note"] = None
+    else:
+        tranche["region_source_type"] = "missing"
+        tranche["region_source_url"] = None
+        tranche["region_source_note"] = None
+
+
 def build_registry(settings: Settings) -> str:
     bsx_rows = read_jsonl(settings.processed_dir / "bsx" / "company_records.jsonl")
     bma_rows = read_jsonl(settings.processed_dir / "bma" / "entity_matches.jsonl")
+    bma_review_rows = read_jsonl(settings.processed_dir / "bma" / "entity_review_candidates.jsonl")
     sec_spv_rows = read_jsonl(settings.processed_dir / "sec" / "sponsor_spv_links.jsonl")
     overrides = _load_manual_overrides(settings.manual_dir / "tranche_overrides.csv")
     sponsor_alias_rows = _load_sponsor_alias_rows(
@@ -400,6 +606,7 @@ def build_registry(settings: Settings) -> str:
     )
     sponsor_aliases_by_name, sponsor_alias_rows_for_prefix = _index_sponsor_alias_rows(sponsor_alias_rows)
     bma_by_name = _index_bma_rows(bma_rows)
+    bma_review_by_name = _index_bma_review_candidates(bma_review_rows)
     sec_by_spv = _index_sec_spv_links(sec_spv_rows)
 
     tranches: list[dict] = []
@@ -410,11 +617,23 @@ def build_registry(settings: Settings) -> str:
         issuer_name = row.get("issuer_name")
         sponsor_name = row.get("sponsor_name")
         raw_sponsor_name = sponsor_name
-        bma_matches, chosen_bma_match = _resolve_bma_match(issuer_name, bma_by_name)
-        sec_link = _resolve_sec_sponsor(issuer_name, sec_by_spv)
+        bma_matches, chosen_bma_match, bma_match_method, bma_ranked_candidates = _resolve_bma_match(
+            issuer_name, bma_by_name, bma_review_by_name
+        )
+        sec_link, sec_match_method, sec_candidates = _resolve_sec_sponsor(issuer_name, sec_by_spv)
         sponsor_alias = _resolve_sponsor_alias(
             issuer_name, sec_link, sponsor_aliases_by_name, sponsor_alias_rows_for_prefix
         )
+
+        sponsor_attribution_state = "missing"
+        if raw_sponsor_name:
+            sponsor_attribution_state = "bsx_declared"
+        elif sec_link and sec_match_method == "exact":
+            sponsor_attribution_state = "sec_exact_spv"
+        elif sec_link and sec_match_method == "ranked_auto":
+            sponsor_attribution_state = "sec_ranked_spv"
+        elif sponsor_alias:
+            sponsor_attribution_state = "alias_family"
 
         if not sponsor_name and sec_link:
             sponsor_name = sec_link.get("sponsor_name")
@@ -429,6 +648,7 @@ def build_registry(settings: Settings) -> str:
         )
         listed_date = row.get("listed_date")
         maturity_date = row.get("maturity_date")
+        maturity_source_type = row.get("maturity_extraction_method") or ("bsx_detail" if maturity_date else "missing")
         record_type = _infer_record_type(title=title, maturity_date=maturity_date)
 
         tranche = {
@@ -450,11 +670,21 @@ def build_registry(settings: Settings) -> str:
                 if sec_link
                 else (sponsor_alias.get("source_url") if sponsor_alias else None)
             ),
+            "sponsor_source_note": None
+            if raw_sponsor_name
+            else (
+                (sec_link.get("source_term") if sec_link else None)
+                or (sponsor_alias.get("notes") if sponsor_alias else None)
+            ),
+            "sponsor_attribution_state": sponsor_attribution_state,
             "issuer_name": issuer_name,
             "listing_venue": "BSX",
             "listing_status": row.get("listing_status"),
             "listed_date": listed_date,
             "maturity_date": maturity_date,
+            "maturity_source_type": maturity_source_type,
+            "maturity_source_url": row.get("source_url") if maturity_date else None,
+            "maturity_source_note": None,
             "issue_amount": row.get("issue_amount"),
             "currency": row.get("currency"),
             "isin": row.get("isin"),
@@ -462,47 +692,140 @@ def build_registry(settings: Settings) -> str:
             "trigger_type": row.get("trigger_type"),
             "peril_codes": peril_codes,
             "peril_inference_method": peril_inference_method,
+            "peril_source_type": peril_inference_method if peril_codes else "missing",
+            "peril_source_url": row.get("source_url") if peril_codes else None,
+            "peril_source_note": None,
             "region_codes": region_codes,
             "region_inference_method": region_inference_method,
+            "region_source_type": region_inference_method if region_codes else "missing",
+            "region_source_url": row.get("source_url") if region_codes else None,
+            "region_source_note": None,
             "risk_start_date": listed_date,
             "risk_end_date": maturity_date,
-            "status": _derive_status(row.get("listing_status"), maturity_date=maturity_date),
-            "confidence": 0.65 if issuer_name else 0.45,
+            "status": _derive_status(
+                row.get("listing_status"),
+                maturity_date=maturity_date,
+                as_of=settings.as_of_date,
+            ),
+            "attribution_status": {
+                "sponsor": "sourced" if sponsor_name else "missing",
+                "peril": peril_inference_method if peril_codes else "missing",
+                "region": region_inference_method if region_codes else "missing",
+                "maturity": maturity_source_type if maturity_date else "missing",
+            },
             "review_status": "needs_review",
             "source_url": row.get("source_url"),
             "extraction_method": row.get("extraction_method"),
             "retrieved_at": row.get("retrieved_at"),
             "bma_match_count": len(bma_matches),
+            "bma_match_method": bma_match_method,
             "bma_regulator_class": chosen_bma_match.get("regulator_class") if chosen_bma_match else None,
             "bma_registration_number": chosen_bma_match.get("registration_number") if chosen_bma_match else None,
+            "bma_candidate_count": len(bma_ranked_candidates),
+            "bma_top_candidate_name": (bma_ranked_candidates[0].get("matched_name") if bma_ranked_candidates else None),
+            "bma_top_candidate_score": (
+                float(bma_ranked_candidates[0].get("candidate_score") or 0.0) if bma_ranked_candidates else None
+            ),
+            "sec_match_method": sec_match_method,
             "sec_sponsor_name": sec_link.get("sponsor_name") if sec_link else None,
             "sec_sponsor_filing_url": sec_link.get("source_filing_url") if sec_link else None,
+            "sec_candidate_count": len(sec_candidates),
+            "sec_top_candidate_name": (sec_candidates[0].get("spv_name") if sec_candidates else None),
+            "sec_top_candidate_score": (
+                float(sec_candidates[0].get("candidate_score") or 0.0) if sec_candidates else None
+            ),
         }
 
         if sponsor_alias:
-            if not tranche["region_codes"] and sponsor_alias.get("region_codes"):
+            if _should_apply_alias_region_codes(tranche, sponsor_alias):
                 tranche["region_codes"] = sponsor_alias["region_codes"]
                 tranche["region_inference_method"] = "sponsor_alias"
-            if "other_property_cat" in tranche["peril_codes"] and sponsor_alias.get("peril_codes"):
+                _apply_field_provenance(
+                    tranche,
+                    "region_codes",
+                    source_type="sponsor_alias",
+                    source_url=sponsor_alias.get("source_url"),
+                    note=sponsor_alias.get("notes"),
+                )
+            if _should_apply_alias_peril_codes(tranche, sponsor_alias):
                 tranche["peril_codes"] = sponsor_alias["peril_codes"]
                 tranche["peril_inference_method"] = "sponsor_alias"
+                _apply_field_provenance(
+                    tranche,
+                    "peril_codes",
+                    source_type="sponsor_alias",
+                    source_url=sponsor_alias.get("source_url"),
+                    note=sponsor_alias.get("notes"),
+                )
+                if not sponsor_alias.get("region_codes") and tranche.get("region_inference_method") in {
+                    "issuer_hint",
+                    "peril_hint",
+                }:
+                    _refresh_region_from_current_perils(
+                        tranche,
+                        title=title,
+                        sponsor_name=tranche.get("sponsor_name") or sponsor_alias.get("sponsor_name"),
+                        issuer_name=issuer_name,
+                        source_url=row.get("source_url"),
+                    )
             if not tranche["sponsor_name"]:
                 tranche["sponsor_name"] = sponsor_alias["sponsor_name"]
                 tranche["sponsor_source"] = "alias"
                 tranche["sponsor_source_detail"] = sponsor_alias["alias"]
                 tranche["sponsor_source_url"] = sponsor_alias.get("source_url")
+                tranche["sponsor_source_note"] = sponsor_alias.get("notes")
+                tranche["sponsor_attribution_state"] = "alias_family"
 
+        original_maturity_date = tranche.get("maturity_date")
         for field in _OVERRIDE_FIELDS:
             if (title, field) in overrides:
-                _apply_override(tranche, field, overrides[(title, field)])
+                override = overrides[(title, field)]
+                _apply_override(tranche, field, str(override.get("override_value") or ""))
                 if field == "region_codes":
                     tranche["region_inference_method"] = "manual_override"
+                    _apply_field_provenance(
+                        tranche,
+                        field,
+                        source_type="manual_override",
+                        source_url=override.get("source_url"),
+                        note=override.get("notes"),
+                    )
                 if field == "peril_codes":
                     tranche["peril_inference_method"] = "manual_override"
+                    _apply_field_provenance(
+                        tranche,
+                        field,
+                        source_type="manual_override",
+                        source_url=override.get("source_url"),
+                        note=override.get("notes"),
+                    )
+                if field == "maturity_date":
+                    _apply_field_provenance(
+                        tranche,
+                        field,
+                        source_type="manual_override",
+                        source_url=override.get("source_url"),
+                        note=override.get("notes"),
+                    )
                 if field == "sponsor_name":
                     tranche["sponsor_source"] = "manual_override"
                     tranche["sponsor_source_detail"] = "tranche_overrides.csv"
-                    tranche["sponsor_source_url"] = None
+                    tranche["sponsor_source_url"] = override.get("source_url")
+                    tranche["sponsor_source_note"] = override.get("notes")
+                    tranche["sponsor_attribution_state"] = "manual_override"
+
+        if tranche.get("maturity_date") and (
+            not tranche.get("risk_end_date") or tranche.get("risk_end_date") == original_maturity_date
+        ):
+            tranche["risk_end_date"] = tranche.get("maturity_date")
+
+        canonical_sponsor = tranche.get("sponsor_name") or tranche.get("sec_sponsor_name")
+        tranche["attribution_status"] = {
+            "sponsor": tranche.get("sponsor_attribution_state") if canonical_sponsor else "missing",
+            "peril": tranche.get("peril_source_type") or "missing",
+            "region": tranche.get("region_source_type") or "missing",
+            "maturity": tranche.get("maturity_source_type") or "missing",
+        }
 
         tranche["is_programme_shell"] = tranche.get("record_type") == "programme" and not tranche.get(
             "maturity_date"

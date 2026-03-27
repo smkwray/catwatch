@@ -66,8 +66,32 @@ def test_parse_company_page_handles_live_style_bsX_markup():
     assert row["currency"] == "USD"
     assert row["issue_amount"] == "240000000"
     assert row["maturity_date"] == "2028-11-07"
+    assert row["maturity_extraction_method"] == "detail_text"
     assert row["issuer_name"] == "Acorn Re Ltd"
     assert row["security_kind"] == "ils_security"
+
+
+def test_parse_company_page_extracts_redemption_date_from_structured_table():
+    html = """
+    <html>
+      <body>
+        <h1>Voussoir Re Ltd Series 2025-3 Preferred Shares</h1>
+        <table>
+          <tr><th>Listing Type</th><td>Insurance Linked Security</td></tr>
+          <tr><th>CFI code</th><td>DBFNBR</td></tr>
+          <tr><th>Redemption Date</th><td>December 31, 2028</td></tr>
+        </table>
+      </body>
+    </html>
+    """
+
+    row = parse_company_page(
+        html,
+        source_url="https://www.bsx.com/company_details.php?CompanyID=99999",
+    )
+
+    assert row["maturity_date"] == "2028-12-31"
+    assert row["maturity_extraction_method"] == "detail_table"
 
 
 def test_parse_listing_links_deduplicates_relative_and_absolute_urls():

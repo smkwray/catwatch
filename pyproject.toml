@@ -40,11 +40,18 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 cache_dir = "/tmp/catwatch-pytest-cache"
+addopts = [
+  "-q",
+  "--ignore-glob",
+  "*sync-conflict*",
+]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+cache-dir = "/tmp/catwatch-ruff-cache"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

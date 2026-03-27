@@ -9,6 +9,7 @@ from .pipelines.quality import (
     audit_processed_data,
     build_manual_review_queue,
     run_release_check,
+    validate_public_snapshot,
 )
 from .pipelines.registry import build_registry
 from .pipelines.site_data import build_site_data, write_demo_dashboard
@@ -50,7 +51,9 @@ def fetch_bma(names_file: Path | None = None) -> None:
     else:
         names = infer_names_from_bsx(settings)
     result = fetch_bma_for_names(settings=settings, names=names)
-    typer.echo(f"saved {len(result)} BMA matches")
+    typer.echo(
+        f"saved {result.get('matches', 0)} BMA matches and {result.get('review_candidates', 0)} ranked review candidates"
+    )
 
 
 @app.command("fetch-sec")
@@ -58,6 +61,8 @@ def fetch_sec(
     sponsors_csv: Path = Path("seeds/sponsor_universe_template.csv"),
     download_docs: bool = True,
     max_docs_per_sponsor: int = 2,
+    spv_terms_file: Path | None = None,
+    unresolved_terms_file: Path | None = None,
 ) -> None:
     settings = get_settings()
     result = fetch_sec_for_sponsors(
@@ -65,9 +70,11 @@ def fetch_sec(
         sponsors_csv=sponsors_csv,
         download_docs=download_docs,
         max_docs_per_sponsor=max_docs_per_sponsor,
+        extra_terms_file=spv_terms_file,
+        unresolved_terms_file=unresolved_terms_file,
     )
     typer.echo(
-        f"saved {result.get('filings', 0)} filing rows, {result.get('hits', 0)} evidence hits, {result.get('spv_links', 0)} SPV links"
+        f"saved {result.get('filings', 0)} filing rows, scanned {result.get('docs_scanned', 0)} docs, {result.get('hits', 0)} evidence hits, {result.get('spv_links', 0)} SPV links"
     )
 
 
@@ -146,6 +153,13 @@ def release_check_cmd() -> None:
     settings = get_settings()
     result = run_release_check(settings=settings)
     typer.echo(f"release check passed: {result}")
+
+
+@app.command("validate-public-snapshot")
+def validate_public_snapshot_cmd() -> None:
+    settings = get_settings()
+    result = validate_public_snapshot(settings=settings)
+    typer.echo(f"public snapshot validation passed: {result}")
 
 
 @app.command("refresh-all")

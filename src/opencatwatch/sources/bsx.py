@@ -162,6 +162,65 @@ def _extract_maturity_date(title: str) -> str | None:
     return None
 
 
+_MATURITY_FIELD_LABELS = (
+    "Maturity Date",
+    "Maturity",
+    "Due Date",
+    "Redemption Date",
+    "Final Redemption Date",
+    "Scheduled Redemption Date",
+    "Expected Maturity",
+)
+
+
+def _extract_maturity_from_structured_fields(soup: BeautifulSoup) -> tuple[str | None, str]:
+    for row in soup.find_all("tr"):
+        cells = row.find_all(["th", "td"])
+        if len(cells) < 2:
+            continue
+        label = cells[0].get_text(" ", strip=True).rstrip(":")
+        if label not in _MATURITY_FIELD_LABELS:
+            continue
+        value = cells[1].get_text(" ", strip=True)
+        parsed = parse_date_maybe(value)
+        if parsed:
+            return parsed, "detail_table"
+    return None, "missing"
+
+
+def _extract_maturity_from_lines(lines: list[str]) -> tuple[str | None, str]:
+    labeled = _extract_field(lines, *_MATURITY_FIELD_LABELS)
+    parsed_labeled = parse_date_maybe(labeled)
+    if parsed_labeled:
+        return parsed_labeled, "detail_field"
+
+    try:
+        start = lines.index("CFI code:")
+        search_lines = lines[start + 2 :]
+    except ValueError:
+        search_lines = lines
+
+    for line in search_lines:
+        if line.upper() == "LISTING SPONSOR":
+            break
+        if any(label.lower() in line.lower() for label in _MATURITY_FIELD_LABELS):
+            parsed = _extract_maturity_date(line)
+            if parsed:
+                return parsed, "detail_text"
+        parsed = _extract_maturity_date(line)
+        if parsed:
+            return parsed, "detail_text"
+    for index, line in enumerate(search_lines):
+        lower = line.lower()
+        if not any(marker in lower for marker in ("redemption", "preferred share", "preferred shares", "participating notes")):
+            continue
+        window = " ".join(search_lines[index : index + 3])
+        parsed = _extract_maturity_date(window) or parse_date_maybe(window)
+        if parsed:
+            return parsed, "detail_context"
+    return None, "missing"
+
+
 def _extract_issue_amount(lines: list[str]) -> str | None:
     pattern = re.compile(r"\b(?:US\$|USD|EUR|GBP)\s*([\d,]+(?:\.\d+)?)")
     try:
@@ -188,6 +247,13 @@ def parse_company_page(html: str, source_url: str) -> dict:
     company_id = company_id_match.group(1) if company_id_match else None
     listing_type = _extract_field(text_lines, "Listing Type")
     issuer_name = _extract_issuer_name(text_lines, title)
+    maturity_date, maturity_extraction_method = _extract_maturity_from_structured_fields(soup)
+    if not maturity_date:
+        maturity_date, maturity_extraction_method = _extract_maturity_from_lines(text_lines)
+    if not maturity_date:
+        maturity_date = _extract_maturity_date(title)
+        if maturity_date:
+            maturity_extraction_method = "title_text"
 
     record = {
         "source_name": "bsx",
@@ -205,7 +271,8 @@ def parse_company_page(html: str, source_url: str) -> dict:
         "sponsor_name": _extract_field(text_lines, "Sponsor"),
         "issuer_name": issuer_name,
         "issue_amount": _extract_issue_amount(text_lines),
-        "maturity_date": _extract_maturity_date(title),
+        "maturity_date": maturity_date,
+        "maturity_extraction_method": maturity_extraction_method,
         "security_kind": infer_security_kind(title, listing_type=listing_type),
         "retrieved_at": utcnow_iso(),
         "extraction_method": "html_labeled_fields_v2",

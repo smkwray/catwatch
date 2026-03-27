@@ -32,7 +32,7 @@ Every material public-facing artifact should stay traceable:
 
 - tranche rows carry listing evidence and sponsor evidence URLs when available
 - manual sponsor aliases and tranche overrides require both `source_url` and `notes`
-- watchlist cards are labeled `possible overlap` and include rule-based reason text
+- watchlist cards are labeled `possible overlap`, carry explicit `public` vs `candidate` scope, and include rule-based reason text plus candidate diagnostics
 - unresolved families are called out in the audit’s public limitations section
 
 ## What Gets Committed
@@ -67,6 +67,12 @@ export OPENCATWATCH_USER_AGENT="OpenCatWatch/0.1 (contact contact@example.com)"
 
 The fetchers will reject the placeholder default.
 
+Optional shared-data mode:
+
+- `PROJ_SHARED_DATA_ROOT=/path/to/shared/pool` stores this repo's data under `$PROJ_SHARED_DATA_ROOT/catwatch/data/`
+- `OPENCATWATCH_DATA_DIR` still overrides that path if you need a custom location
+- `OPENCATWATCH_AS_OF_DATE=YYYY-MM-DD` pins registry/site/audit build math to a reproducible as-of date
+
 ## Common Commands
 
 ```bash
@@ -78,6 +84,7 @@ make site
 make audit
 make review-queue
 make release-check
+make snapshot-check
 ```
 
 `make release-check` runs the local operator-facing release flow:
@@ -89,6 +96,8 @@ make release-check
 5. site rebuild
 6. audit generation
 7. release-gate assertions
+
+`make snapshot-check` validates the committed `apps/site/data/dashboard.json` and `reports/data_audit.json` snapshot without fetching live data.
 
 ## Rebuilding The Public Snapshot
 
@@ -133,6 +142,7 @@ The first public push targets a usable snapshot, not a perfect market map. The r
 - non-demo dashboard snapshot present
 - current audit outputs present
 - manual evidence metadata complete
+- public watchlist rows have zero unresolved tranche blockers
 
 ## License
 

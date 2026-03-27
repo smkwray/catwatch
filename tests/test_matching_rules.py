@@ -9,8 +9,10 @@ from opencatwatch.pipelines.registry import _default_perils
 from opencatwatch.pipelines.watchlist import (
     _canonicalize_fema,
     _canonicalize_ibtracs,
+    _canonicalize_nws,
     _load_fema_events,
     _load_ibtracs_events,
+    _load_storm_events,
 )
 from opencatwatch.utils import extract_region_codes
 
@@ -116,6 +118,9 @@ def test_build_match_status():
         "risk_end_date": "2027-01-01",
         "region_codes": ["us"],
         "sponsor_name": "Example Sponsor",
+        "region_source_type": "explicit_text",
+        "status": "outstanding",
+        "maturity_date": "2027-01-01",
     }
     event = {
         "event_id": "e1",
@@ -126,6 +131,35 @@ def test_build_match_status():
     match = build_match(tranche, event)
     assert match is not None
     assert match["match_status"] == "possible overlap"
+    assert match["match_scope"] == "public"
+    assert match["public_blockers"] == []
+    assert match["candidate_reason_codes"] == []
+    assert match["confidence_band"] == "high"
+
+
+def test_build_match_marks_exact_overlap_as_candidate_when_tranche_has_public_blockers():
+    tranche = {
+        "tranche_id": "t1",
+        "peril_codes": ["ca_wildfire"],
+        "risk_start_date": "2025-01-01",
+        "risk_end_date": "2027-01-01",
+        "region_codes": ["california"],
+        "region_source_type": "peril_hint",
+        "status": "outstanding",
+        "maturity_date": "",
+    }
+    event = {
+        "event_id": "e1",
+        "peril_code": "ca_wildfire",
+        "start_time": "2026-08-20T00:00:00+00:00",
+        "region_codes": ["california"],
+    }
+    match = build_match(tranche, event)
+    assert match is not None
+    assert match["match_scope"] == "candidate"
+    assert set(match["public_blockers"]) == {"missing_sponsor", "missing_maturity", "weak_region_evidence"}
+    assert set(match["candidate_reason_codes"]) == {"missing_sponsor", "missing_maturity", "weak_region_evidence"}
+    assert match["confidence_band"] == "low"
 
 
 def test_other_property_cat_matches_major_perils():
@@ -189,6 +223,8 @@ def test_canonicalize_fema_hurricane():
     assert result["peril_code"] == "us_wind"
     assert result["region_codes"] == ["florida"]
     assert result["event_id"] == "fema-4000-FL"
+    assert result["source_url"] is not None
+    assert result["source_record_id"] == "4000"
 
 
 def test_canonicalize_fema_skips_unknown_type():
@@ -199,6 +235,41 @@ def test_canonicalize_fema_skips_unknown_type():
         "declarationTitle": "CHEMICAL SPILL",
     }
     assert _canonicalize_fema(row) is None
+
+
+def test_canonicalize_nws_extracts_multiple_regions_from_area_desc():
+    row = {
+        "source_event_id": "nws-1",
+        "event_name": "Flood Warning",
+        "headline": "Flooding possible",
+        "area_desc": "Central and Eastern North Carolina; South Carolina",
+        "start_time": "2026-06-01T00:00:00+00:00",
+        "end_time": "2026-06-02T00:00:00+00:00",
+        "source_url": "https://example.com/nws-1",
+    }
+
+    result = _canonicalize_nws(row)
+
+    assert result is not None
+    assert result["peril_code"] == "flood"
+    assert result["region_codes"] == ["north_carolina", "south_carolina"]
+
+
+def test_canonicalize_nws_defaults_to_us_when_area_desc_is_unrecognized():
+    row = {
+        "source_event_id": "nws-2",
+        "event_name": "Flood Warning",
+        "headline": "Flooding possible",
+        "area_desc": "Zone 123",
+        "start_time": "2026-06-01T00:00:00+00:00",
+        "end_time": "2026-06-02T00:00:00+00:00",
+        "source_url": "https://example.com/nws-2",
+    }
+
+    result = _canonicalize_nws(row)
+
+    assert result is not None
+    assert result["region_codes"] == ["us"]
 
 
 def test_load_fema_events_handles_string_dates(tmp_path):
@@ -233,6 +304,65 @@ def test_load_fema_events_handles_string_dates(tmp_path):
     assert events[0]["region_codes"] == ["florida"]
 
 
+def test_load_storm_events_normalizes_state_names_without_collapsing_to_us(tmp_path):
+    settings = _settings(tmp_path)
+    raw_path = settings.raw_dir / "noaa_stormevents" / "StormEvents_details-2026.csv.gz"
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+
+    import csv
+    import gzip
+
+    with gzip.open(raw_path, "wt", encoding="utf-8", newline="") as fh:
+        writer = csv.DictWriter(
+            fh,
+            fieldnames=[
+                "EVENT_ID",
+                "EPISODE_ID",
+                "EVENT_TYPE",
+                "STATE",
+                "STATE_FIPS",
+                "BEGIN_YEARMONTH",
+                "BEGIN_DAY",
+                "END_YEARMONTH",
+                "END_DAY",
+            ],
+        )
+        writer.writeheader()
+        writer.writerow(
+            {
+                "EVENT_ID": "1",
+                "EPISODE_ID": "1001",
+                "EVENT_TYPE": "Hurricane",
+                "STATE": "North Carolina",
+                "STATE_FIPS": "37",
+                "BEGIN_YEARMONTH": "202606",
+                "BEGIN_DAY": "01",
+                "END_YEARMONTH": "202606",
+                "END_DAY": "02",
+            }
+        )
+        writer.writerow(
+            {
+                "EVENT_ID": "2",
+                "EPISODE_ID": "1002",
+                "EVENT_TYPE": "Tropical Storm",
+                "STATE": "Texas",
+                "STATE_FIPS": "48",
+                "BEGIN_YEARMONTH": "202606",
+                "BEGIN_DAY": "03",
+                "END_YEARMONTH": "202606",
+                "END_DAY": "04",
+            }
+        )
+
+    events = _load_storm_events(settings)
+    events_by_id = {row["event_id"]: row for row in events}
+
+    assert events_by_id["se-1001"]["region_codes"] == ["north_carolina"]
+    assert events_by_id["se-1002"]["region_codes"] == ["texas"]
+    assert events_by_id["se-1001"]["region_codes"] != ["us"]
+
+
 def test_canonicalize_ibtracs_tracks_tropical_cyclone():
     row = {
         "SID": "2026001",
@@ -248,6 +378,8 @@ def test_canonicalize_ibtracs_tracks_tropical_cyclone():
     assert result["peril_code"] == "us_wind"
     assert result["region_codes"] == ["us"]
     assert result["start_time"] == "2026-03-01"
+    assert result["source_url"] is not None
+    assert result["source_record_id"] == "2026001"
 
 
 def test_load_ibtracs_events_collapses_storm_tracks(tmp_path):

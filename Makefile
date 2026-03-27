@@ -1,38 +1,56 @@
-.PHONY: install demo fetch refresh registry watchlist site audit review-queue test lint release-check
+.PHONY: install demo fetch refresh registry watchlist site audit review-queue test lint release-check snapshot-check
+
+PYTHON ?= $(if $(VIRTUAL_ENV),$(VIRTUAL_ENV)/bin/python,$(shell command -v python3 2>/dev/null || command -v python))
+ifeq ($(strip $(PYTHON)),)
+  $(error python not found. Please install Python 3 and ensure python or python3 is on PATH)
+endif
+PIP := $(PYTHON) -m pip
+
+PYTHONPATH := src
+PYTHONPYCACHEPREFIX ?= /tmp/catwatch-pycache
+PYTEST_CACHE_DIR ?= /tmp/catwatch-pytest-cache
+RUFF_CACHE_DIR ?= /tmp/catwatch-ruff-cache
+
+export PYTHONPATH
+export PYTHONPYCACHEPREFIX
+export RUFF_CACHE_DIR
 
 install:
-	pip install -r requirements.txt
-	pip install -e '.[dev]'
+	$(PIP) install -r requirements.txt
+	$(PIP) install -e '.[dev]'
 
 demo:
-	PYTHONPATH=src python -m opencatwatch demo-site-data
+	$(PYTHON) -m opencatwatch demo-site-data
 
 fetch:
 	bash scripts/fetch_all_minimal.sh
 
 refresh:
-	PYTHONPATH=src python -m opencatwatch refresh-all
+	$(PYTHON) -m opencatwatch refresh-all
 
 registry:
-	PYTHONPATH=src python -m opencatwatch build-registry
+	$(PYTHON) -m opencatwatch build-registry
 
 watchlist:
-	PYTHONPATH=src python -m opencatwatch build-watchlist
+	$(PYTHON) -m opencatwatch build-watchlist
 
 site:
-	PYTHONPATH=src python -m opencatwatch build-site
+	$(PYTHON) -m opencatwatch build-site
 
 audit:
-	PYTHONPATH=src python -m opencatwatch audit-data
+	$(PYTHON) -m opencatwatch audit-data
 
 review-queue:
-	PYTHONPATH=src python -m opencatwatch build-review-queue
+	$(PYTHON) -m opencatwatch build-review-queue
 
 test:
-	PYTHONPATH=src python -m pytest -q -o cache_dir=/tmp/catwatch-pytest-cache
+	$(PYTHON) -m pytest -o cache_dir=$(PYTEST_CACHE_DIR)
 
 lint:
-	PYTHONPATH=src python -m ruff check src/opencatwatch tests
+	$(PYTHON) -m ruff check src/opencatwatch tests --cache-dir=$(RUFF_CACHE_DIR)
 
 release-check:
-	PYTHONPATH=src python -m opencatwatch release-check
+	$(PYTHON) -m opencatwatch release-check
+
+snapshot-check:
+	$(PYTHON) -m opencatwatch validate-public-snapshot

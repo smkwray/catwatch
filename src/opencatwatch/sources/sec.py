@@ -10,11 +10,21 @@ from bs4 import BeautifulSoup
 
 from ..config import Settings
 from ..http import build_session, download_file, request_json, request_text
-from ..utils import utcnow_iso, write_records_bundle
+from ..utils import utcnow_iso, write_json, write_records_bundle
 
 COMPANY_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SUBMISSIONS_URL_TEMPLATE = "https://data.sec.gov/submissions/CIK{cik}.json"
 ARCHIVE_URL_TEMPLATE = "https://www.sec.gov/Archives/edgar/data/{cik_no_zero}/{accession_no_dashes}/{primary_doc}"
+DEFAULT_SEC_SCAN_TERMS = [
+    "catastrophe bond",
+    "cat bond",
+    "special purpose insurer",
+    "parametric",
+    "wildfire",
+    "earthquake",
+    "hurricane",
+    "reinsurance",
+]
 
 
 def zero_pad_cik(cik: str | int) -> str:
@@ -147,19 +157,68 @@ def scan_terms_in_html(html: str, terms: Iterable[str]) -> list[dict]:
     return hits
 
 
+def load_scan_terms(
+    terms: list[str] | None = None,
+    extra_terms_file: Path | None = None,
+) -> list[str]:
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for term in terms or DEFAULT_SEC_SCAN_TERMS:
+        normalized = term.strip()
+        if not normalized:
+            continue
+        key = normalized.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(normalized)
+    if extra_terms_file and extra_terms_file.exists():
+        for line in extra_terms_file.read_text(encoding="utf-8").splitlines():
+            normalized = line.strip()
+            if not normalized:
+                continue
+            key = normalized.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            ordered.append(normalized)
+    return ordered
+
+
 _LEGAL_SUFFIX_PATTERN = (
     r"(?:Ltd|Limited|Inc|Corp|Corporation|DAC|PLC|SAC|PCC(?:\s+Limited)?|Pte\.?\s+Ltd\.?)"
 )
 _SPV_NAME_PATTERN = (
     r"([A-Z][A-Za-z0-9&'’.,()/:-]*"
     r"(?:\s+[A-Z0-9][A-Za-z0-9&'’.,()/:-]*){0,10}"
-    r"\s+(?:Re|Reinsurance|Insurance|Capital)\s+"
+    r"\s+(?:Re|Reinsurance|Insurance|Capital|Risk\s+Solutions)\s+"
+    + _LEGAL_SUFFIX_PATTERN
+    + r"\.?)"
+)
+_GENERIC_LEGAL_ENTITY_PATTERN = (
+    r"([A-Z][A-Za-z0-9&'’.,()/:-]*"
+    r"(?:\s+[A-Z0-9][A-Za-z0-9&'’.,()/:-]*){0,12}"
+    r"\s+"
     + _LEGAL_SUFFIX_PATTERN
     + r"\.?)"
 )
 _SPV_PATTERNS = [
     re.compile(r"(?:via|through)\s+" + _SPV_NAME_PATTERN, flags=re.IGNORECASE),
     re.compile(r"(?:issued|placed|provided|sponsored)\s+(?:via|through|by)\s+" + _SPV_NAME_PATTERN, flags=re.IGNORECASE),
+    re.compile(
+        r"(?:notes?|bonds?|securities)\s+(?:were\s+)?issued\s+by\s+" + _SPV_NAME_PATTERN,
+        flags=re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:special purpose insurer|spi|segregated accounts company)(?:\s+vehicle)?\s+(?:named\s+)?"
+        + _SPV_NAME_PATTERN,
+        flags=re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:special purpose insurer|spi|segregated accounts company)(?:\s+vehicle)?\s+(?:named\s+)?"
+        + _GENERIC_LEGAL_ENTITY_PATTERN,
+        flags=re.IGNORECASE,
+    ),
     re.compile(r"(?:used|using)\s+(?:the\s+existing\s+)?" + _SPV_NAME_PATTERN, flags=re.IGNORECASE),
 ]
 
@@ -203,20 +262,15 @@ def fetch_sec_for_sponsors(
     download_docs: bool = False,
     max_docs_per_sponsor: int = 3,
     terms: list[str] | None = None,
+    extra_terms_file: Path | None = None,
+    unresolved_terms_file: Path | None = None,
 ) -> dict:
-    terms = terms or [
-        "catastrophe bond",
-        "cat bond",
-        "special purpose insurer",
-        "parametric",
-        "wildfire",
-        "earthquake",
-        "hurricane",
-        "reinsurance",
-    ]
+    targeted_terms_file = unresolved_terms_file or extra_terms_file
+    terms = load_scan_terms(terms=terms, extra_terms_file=targeted_terms_file)
     session = build_session(settings)
     filings_rows: list[dict] = []
     hits_rows: list[dict] = []
+    docs_scanned = 0
 
     with sponsors_csv.open("r", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
@@ -237,6 +291,7 @@ def fetch_sec_for_sponsors(
                     html = request_text(session, url, settings)
                 except Exception:
                     continue
+                docs_scanned += 1
                 file_dest = settings.raw_dir / "sec" / "filings" / filing["cik"] / f"{filing['accession_number']}.html"
                 file_dest.parent.mkdir(parents=True, exist_ok=True)
                 file_dest.write_text(html, encoding="utf-8")
@@ -260,4 +315,26 @@ def fetch_sec_for_sponsors(
     write_records_bundle(settings.processed_dir / "sec" / "recent_filings", filings_rows)
     write_records_bundle(settings.processed_dir / "sec" / "term_hits", hits_rows)
     write_records_bundle(settings.processed_dir / "sec" / "sponsor_spv_links", spv_links)
-    return {"filings": len(filings_rows), "hits": len(hits_rows), "spv_links": len(spv_links)}
+    write_json(
+        settings.processed_dir / "sec" / "scan_manifest.json",
+        {
+            "source": "sec",
+            "sponsors_csv": str(sponsors_csv),
+            "sponsors_scanned": len(sponsor_rows),
+            "download_docs": bool(download_docs),
+            "max_docs_per_sponsor": max_docs_per_sponsor,
+            "terms": terms,
+            "targeted_terms_file": str(targeted_terms_file) if targeted_terms_file else None,
+            "filings": len(filings_rows),
+            "docs_scanned": docs_scanned,
+            "hits": len(hits_rows),
+            "spv_links": len(spv_links),
+            "retrieved_at": utcnow_iso(),
+        },
+    )
+    return {
+        "filings": len(filings_rows),
+        "docs_scanned": docs_scanned,
+        "hits": len(hits_rows),
+        "spv_links": len(spv_links),
+    }
