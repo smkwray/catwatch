@@ -43,6 +43,27 @@ _MANUAL_TABLE_SPECS = {
         "row_label_field": "tranche_name",
         "duplicate_key_fields": ["tranche_name", "field_name"],
     },
+    "region_geocoding": {
+        "path": "region_geocoding.csv",
+        "required_columns": [
+            "region_code",
+            "display_name",
+            "iso_alpha2",
+            "latitude",
+            "longitude",
+            "map_zoom_level",
+            "source_url",
+            "notes",
+        ],
+        "row_label_field": "region_code",
+        "duplicate_key_fields": ["region_code"],
+    },
+    "trigger_overrides": {
+        "path": "trigger_overrides.csv",
+        "required_columns": ["tranche_name", "trigger_type", "source_url", "notes"],
+        "row_label_field": "tranche_name",
+        "duplicate_key_fields": ["tranche_name"],
+    },
 }
 
 
@@ -101,6 +122,11 @@ def _load_manual_table_rows(path: Path) -> tuple[list[str], list[dict[str, str]]
     with path.open("r", encoding="utf-8", newline="") as fh:
         reader = csv.DictReader(fh)
         return list(reader.fieldnames or []), list(reader)
+
+
+def _load_region_geocoding_codes(settings: Settings) -> set[str]:
+    _, rows = _load_manual_table_rows(settings.manual_dir / "region_geocoding.csv")
+    return {(row.get("region_code") or "").strip() for row in rows if (row.get("region_code") or "").strip()}
 
 
 def _validate_json_list_field(value: str | None) -> bool:
@@ -231,6 +257,16 @@ def _dashboard_has_evidence_fields(dashboard: dict) -> bool:
             "sponsor_source_url",
             "sponsor_source_type",
             "review_status",
+            "issue_amount",
+            "issue_amount_source_type",
+            "issue_amount_source_url",
+            "currency",
+            "region_codes",
+            "listing_status",
+            "status",
+            "bma_regulator_class",
+            "attribution_status",
+            "sponsor_attribution_state",
             "peril_source_type",
             "region_source_type",
             "maturity_source_type",
@@ -239,6 +275,79 @@ def _dashboard_has_evidence_fields(dashboard: dict) -> bool:
         for row in maturity_rows[:5]
     )
     return maturity_ok and _watchlist_rows_have_fields(watchlist_rows) and _watchlist_rows_have_fields(candidate_rows)
+
+
+def _dashboard_has_enrichment_fields(dashboard: dict) -> bool:
+    capital_summary = dashboard.get("capital_summary") or {}
+    coverage_gaps = dashboard.get("coverage_gaps") or {}
+    trigger_summary = dashboard.get("trigger_summary") or {}
+    registry_stats = dashboard.get("registry_stats") or {}
+    story_blocks = dashboard.get("story_blocks") or {}
+    region_detail = dashboard.get("region_detail")
+    region_map = dashboard.get("region_map")
+
+    top_level_ok = (
+        isinstance(region_detail, list)
+        and isinstance(region_map, list)
+        and isinstance(capital_summary, dict)
+        and isinstance(coverage_gaps, dict)
+        and isinstance(trigger_summary, dict)
+        and isinstance(registry_stats, dict)
+        and isinstance(story_blocks, dict)
+        and {
+            "known_amount_rows",
+            "missing_amount_rows",
+            "non_usd_rows",
+            "by_peril",
+            "by_sponsor",
+            "by_listed_year",
+        }
+        <= set(capital_summary)
+        and {
+            "missing_issue_amount",
+            "missing_region",
+            "missing_maturity",
+            "missing_trigger_type",
+            "missing_sponsor",
+            "missing_region_geocoding",
+        }
+        <= set(coverage_gaps)
+        and {"known_trigger_rows", "missing_trigger_rows", "by_trigger_type"} <= set(trigger_summary)
+        and {
+            "total_rows",
+            "material_tranches",
+            "programme_shells",
+            "identified_sponsors",
+            "amount_present_rows",
+            "amount_missing_rows",
+            "currency_breakdown",
+            "status_breakdown",
+            "listing_status_breakdown",
+        }
+        <= set(registry_stats)
+        and {
+            "top_sponsors_by_capital",
+            "top_regions_by_capital",
+            "top_perils_by_capital",
+            "market_timeline",
+            "maturity_runway",
+            "upcoming_maturities_by_region",
+            "capital_concentration",
+            "coverage_scorecard",
+            "unresolved_families",
+            "candidate_blockers_summary",
+            "watchlist_pressure",
+        }
+        <= set(story_blocks)
+    )
+    if not top_level_ok:
+        return False
+
+    watchlist_rows = dashboard.get("watchlist") or []
+    candidate_rows = dashboard.get("watchlist_review_candidates") or []
+    watchlist_ok = all("event_geo" in row for row in watchlist_rows[:5] if isinstance(row, dict))
+    candidate_ok = all("event_geo" in row for row in candidate_rows[:5] if isinstance(row, dict))
+    return watchlist_ok and candidate_ok
 
 
 def _dashboard_watchlist_is_public_only(dashboard: dict) -> bool:
@@ -490,6 +599,13 @@ def _build_release_checks(
             "detail": "Dashboard payload exposes candidate diagnostics and limitations for the public watchlist split.",
         },
         {
+            "name": "dashboard_enrichment_fields",
+            "passed": _dashboard_has_enrichment_fields(dashboard),
+            "actual": _dashboard_has_enrichment_fields(dashboard),
+            "target": True,
+            "detail": "Dashboard payload exposes the backend enrichment sections and event geo contract.",
+        },
+        {
             "name": "manual_evidence_metadata",
             "passed": manual_issue_count == 0,
             "actual": manual_issue_count,
@@ -520,6 +636,7 @@ def collect_audit_payload(settings: Settings) -> dict:
     events = read_jsonl(settings.processed_dir / "watchlist" / "events.jsonl")
     dashboard = _load_dashboard(settings)
     manual_tables = _validate_manual_tables(settings)
+    region_geocoding_codes = _load_region_geocoding_codes(settings)
 
     as_of = settings.as_of_date
     horizon = as_of + timedelta(days=365)
@@ -571,16 +688,53 @@ def collect_audit_payload(settings: Settings) -> dict:
         )
     review_candidates.sort(key=lambda row: (-row.get("priority", 0), row.get("tranche_name") or ""))
 
+    amount_gap_rows = [
+        row
+        for row in material
+        if row.get("issue_amount") in {None, ""}
+    ]
+    amount_gap_rows.sort(
+        key=lambda row: (
+            0 if row.get("status") == "outstanding" else 1,
+            0 if _canonical_sponsor(row) else 1,
+            -((_to_date(row.get("listed_date")) or date.min).toordinal()),
+            row.get("tranche_name") or "",
+        )
+    )
+    sponsor_gap_rows = [row for row in material if not _canonical_sponsor(row)]
+    sponsor_gap_rows.sort(
+        key=lambda row: (
+            0 if row.get("status") == "outstanding" else 1,
+            -((_to_date(row.get("listed_date")) or date.min).toordinal()),
+            row.get("tranche_name") or "",
+        )
+    )
+
     coverage = {
         "sponsor_coverage_pct": round((len(sponsor_rows) / len(material) * 100.0), 2) if material else 0.0,
         "region_coverage_pct": round((len(region_rows) / len(region_required_rows) * 100.0), 2)
         if region_required_rows
         else 100.0,
+        "amount_coverage_pct": round(
+            (sum(1 for row in material if row.get("issue_amount") not in {None, ""}) / len(material) * 100.0), 2
+        )
+        if material
+        else 0.0,
+        "trigger_coverage_pct": round(
+            (sum(1 for row in material if row.get("trigger_type") not in {None, ""}) / len(material) * 100.0), 2
+        )
+        if material
+        else 0.0,
         "identified_sponsors": len({_canonical_sponsor(row) for row in material if _canonical_sponsor(row)}),
         "inferred_region_rows": sum(
             1
             for row in region_required_rows
             if row.get("region_inference_method") not in {None, "missing", "explicit_text"}
+        ),
+        "geocoded_region_rows": sum(
+            1
+            for row in material
+            if (row.get("region_codes") or []) and all(code in region_geocoding_codes for code in (row.get("region_codes") or []))
         ),
     }
     issue_counts = {
@@ -593,6 +747,13 @@ def collect_audit_payload(settings: Settings) -> dict:
             1 for row in material if row.get("status") == "outstanding" and not row.get("maturity_date")
         ),
         "broad_peril_rows": sum(1 for row in material if "other_property_cat" in (row.get("peril_codes") or [])),
+        "missing_issue_amount": sum(1 for row in material if row.get("issue_amount") in {None, ""}),
+        "missing_trigger_type": sum(1 for row in material if row.get("trigger_type") in {None, ""}),
+        "missing_region_geocoding": sum(
+            1
+            for row in material
+            if any(code not in region_geocoding_codes for code in (row.get("region_codes") or []))
+        ),
     }
     public_limitations = _public_limitations(material)
     release_checks = _build_release_checks(
@@ -641,6 +802,33 @@ def collect_audit_payload(settings: Settings) -> dict:
             "dashboard_age_days": _dashboard_age_days(dashboard, reference_date=settings.as_of_date),
         },
         "manual_evidence": manual_tables,
+        "gap_analysis": {
+            "top_missing_issue_amount_rows": [
+                {
+                    "tranche_name": row.get("tranche_name"),
+                    "sponsor_name": _canonical_sponsor(row),
+                    "listed_date": row.get("listed_date"),
+                    "maturity_date": row.get("maturity_date"),
+                    "currency": row.get("currency"),
+                    "source_url": row.get("source_url"),
+                }
+                for row in amount_gap_rows[:15]
+            ],
+            "top_missing_sponsor_rows": [
+                {
+                    "tranche_name": row.get("tranche_name"),
+                    "issuer_name": row.get("issuer_name"),
+                    "listed_date": row.get("listed_date"),
+                    "maturity_date": row.get("maturity_date"),
+                    "source_url": row.get("source_url"),
+                }
+                for row in sponsor_gap_rows[:15]
+            ],
+            "top_missing_sponsor_families": [
+                {"family_name": family_name, "missing_sponsor_rows": count}
+                for family_name, count in Counter(_family_name(row) for row in sponsor_gap_rows).most_common(15)
+            ],
+        },
         "public_limitations": public_limitations,
         "release_gate": {
             "passed": all(check["passed"] for check in release_checks),
@@ -657,6 +845,7 @@ def _render_markdown(payload: dict) -> str:
     issues = payload.get("issues", {})
     dashboard = payload.get("dashboard_consistency", {})
     manual_evidence = payload.get("manual_evidence", {})
+    gap_analysis = payload.get("gap_analysis", {})
     lines = [
         "# OpenCatWatch data audit",
         "",
@@ -688,8 +877,11 @@ def _render_markdown(payload: dict) -> str:
             "",
             f"- Sponsor coverage: {coverage.get('sponsor_coverage_pct', 0.0):.1f}%",
             f"- Region coverage: {coverage.get('region_coverage_pct', 0.0):.1f}%",
+            f"- Amount coverage: {coverage.get('amount_coverage_pct', 0.0):.1f}%",
+            f"- Trigger coverage: {coverage.get('trigger_coverage_pct', 0.0):.1f}%",
             f"- Identified sponsors: {coverage.get('identified_sponsors', 0)}",
             f"- Inferred regions: {coverage.get('inferred_region_rows', 0)}",
+            f"- Geocoded region rows: {coverage.get('geocoded_region_rows', 0)}",
             "",
             "## Issues",
             "",
@@ -700,6 +892,9 @@ def _render_markdown(payload: dict) -> str:
             f"- Candidate match ratio (%): {issues.get('candidate_match_ratio_pct', 0.0)}",
             f"- Outstanding rows without maturity: {issues.get('outstanding_missing_maturity', 0)}",
             f"- Broad peril rows in registry: {issues.get('broad_peril_rows', 0)}",
+            f"- Missing issue amount rows: {issues.get('missing_issue_amount', 0)}",
+            f"- Missing trigger type rows: {issues.get('missing_trigger_type', 0)}",
+            f"- Missing region geocoding rows: {issues.get('missing_region_geocoding', 0)}",
             "",
             "## Dashboard consistency",
             "",
@@ -725,6 +920,13 @@ def _render_markdown(payload: dict) -> str:
         lines.append(
             f"- {issue.get('table')} row {issue.get('row_number')}: {issue.get('label')} [{issue.get('issue')}]"
         )
+    lines.extend(["", "## Gap analysis", ""])
+    for row in gap_analysis.get("top_missing_issue_amount_rows", [])[:10]:
+        lines.append(f"- Missing amount: {row.get('tranche_name')} ({row.get('currency')})")
+    for row in gap_analysis.get("top_missing_sponsor_rows", [])[:10]:
+        lines.append(f"- Missing sponsor: {row.get('tranche_name')}")
+    for row in gap_analysis.get("top_missing_sponsor_families", [])[:10]:
+        lines.append(f"- Missing sponsor family: {row.get('family_name')} ({row.get('missing_sponsor_rows')})")
     lines.extend(["", "## Public limitations", ""])
     for limitation in payload.get("public_limitations", []):
         lines.append(f"- {limitation}")
@@ -766,6 +968,8 @@ def validate_public_snapshot(settings: Settings) -> str:
             snapshot_failures.append("dashboard_public_watchlist_only")
         if not _dashboard_has_watchlist_diagnostics(dashboard):
             snapshot_failures.append("dashboard_watchlist_diagnostics")
+        if not _dashboard_has_enrichment_fields(dashboard):
+            snapshot_failures.append("dashboard_enrichment_fields")
         kpi_mismatches = _snapshot_kpi_mismatches(dashboard)
         if kpi_mismatches:
             snapshot_failures.append(f"dashboard_kpi_mismatch:{','.join(kpi_mismatches)}")

@@ -90,9 +90,44 @@ def _write_manual_tables(
     settings: Settings,
     sponsor_rows: list[dict[str, str]] | None = None,
     override_rows: list[dict[str, str]] | None = None,
+    region_rows: list[dict[str, str]] | None = None,
+    trigger_rows: list[dict[str, str]] | None = None,
 ) -> None:
     sponsor_rows = sponsor_rows or []
     override_rows = override_rows or []
+    trigger_rows = trigger_rows or []
+    region_rows = region_rows or [
+        {
+            "region_code": "us",
+            "display_name": "United States",
+            "iso_alpha2": "US",
+            "latitude": "39.8283",
+            "longitude": "-98.5795",
+            "map_zoom_level": "4",
+            "source_url": "https://example.com/us",
+            "notes": "Representative centroid.",
+        },
+        {
+            "region_code": "california",
+            "display_name": "California, US",
+            "iso_alpha2": "US",
+            "latitude": "36.7783",
+            "longitude": "-119.4179",
+            "map_zoom_level": "5",
+            "source_url": "https://example.com/california",
+            "notes": "Representative centroid.",
+        },
+        {
+            "region_code": "florida",
+            "display_name": "Florida, US",
+            "iso_alpha2": "US",
+            "latitude": "27.6648",
+            "longitude": "-81.5158",
+            "map_zoom_level": "5",
+            "source_url": "https://example.com/florida",
+            "notes": "Representative centroid.",
+        },
+    ]
 
     sponsor_path = settings.manual_dir / "sponsor_aliases.csv"
     sponsor_path.parent.mkdir(parents=True, exist_ok=True)
@@ -112,6 +147,167 @@ def _write_manual_tables(
         )
         writer.writeheader()
         writer.writerows(override_rows)
+
+    trigger_path = settings.manual_dir / "trigger_overrides.csv"
+    with trigger_path.open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.DictWriter(
+            fh,
+            fieldnames=["tranche_name", "trigger_type", "source_url", "notes"],
+        )
+        writer.writeheader()
+        writer.writerows(trigger_rows)
+
+    region_path = settings.manual_dir / "region_geocoding.csv"
+    with region_path.open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.DictWriter(
+            fh,
+            fieldnames=[
+                "region_code",
+                "display_name",
+                "iso_alpha2",
+                "latitude",
+                "longitude",
+                "map_zoom_level",
+                "source_url",
+                "notes",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(region_rows)
+
+
+def _dashboard_payload(*, as_of: str, next_12m_maturities: int = 0, watchlist_matches: int = 0, watchlist_review_candidates: int = 0, watchlist: list[dict] | None = None, watchlist_review_rows: list[dict] | None = None, maturity_wall: list[dict] | None = None, limitations: list[str] | None = None) -> dict:
+    return {
+        "demo_mode": False,
+        "as_of": as_of,
+        "kpis": {
+            "next_12m_maturities": next_12m_maturities,
+            "watchlist_matches": watchlist_matches,
+            "watchlist_review_candidates": watchlist_review_candidates,
+        },
+        "maturity_wall": maturity_wall or [],
+        "watchlist": watchlist or [],
+        "watchlist_review_candidates": watchlist_review_rows or [],
+        "watchlist_diagnostics": {
+            "public_match_count": watchlist_matches,
+            "candidate_match_count": watchlist_review_candidates,
+            "public_rows_with_blockers": 0,
+            "candidate_reason_counts": [],
+            "public_blocker_counts": [],
+            "confidence_band_counts": [],
+            "top_candidate_families": [],
+        },
+        "limitations": limitations or ["Example Family: 1 missing sponsor evidence."],
+        "capital_summary": {
+            "known_amount_rows": 0,
+            "missing_amount_rows": 0,
+            "non_usd_rows": 0,
+            "by_peril": [],
+            "by_sponsor": [],
+            "by_listed_year": [],
+        },
+        "region_detail": [],
+        "coverage_gaps": {
+            "missing_issue_amount": 0,
+            "missing_region": 0,
+            "missing_maturity": 0,
+            "missing_trigger_type": 0,
+            "missing_sponsor": 0,
+            "missing_region_geocoding": 0,
+        },
+        "trigger_summary": {
+            "known_trigger_rows": 0,
+            "missing_trigger_rows": 0,
+            "by_trigger_type": [],
+        },
+        "registry_stats": {
+            "total_rows": 0,
+            "material_tranches": 0,
+            "programme_shells": 0,
+            "identified_sponsors": 0,
+            "amount_present_rows": 0,
+            "amount_missing_rows": 0,
+            "currency_breakdown": [],
+            "status_breakdown": [],
+            "listing_status_breakdown": [],
+        },
+        "region_map": [],
+        "story_blocks": {
+            "top_sponsors_by_capital": [],
+            "top_regions_by_capital": [],
+            "top_perils_by_capital": [],
+            "market_timeline": [],
+            "maturity_runway": [],
+            "upcoming_maturities_by_region": [],
+            "capital_concentration": [],
+            "coverage_scorecard": {
+                "material_tranche_count": 0,
+                "identified_sponsors": 0,
+                "sponsor_coverage_pct": 0.0,
+                "region_coverage_pct": 100.0,
+                "amount_coverage_pct": 0.0,
+                "trigger_coverage_pct": 0.0,
+                "missing_issue_amount_rows": 0,
+                "missing_trigger_rows": 0,
+            },
+            "unresolved_families": [],
+            "candidate_blockers_summary": {
+                "top_candidate_reasons": [],
+                "top_promotion_hints": [],
+                "top_candidate_families": [],
+            },
+            "watchlist_pressure": {
+                "public_match_count": watchlist_matches,
+                "candidate_match_count": watchlist_review_candidates,
+                "candidate_ratio_pct": 0.0,
+                "top_promotion_hints": [],
+                "top_candidate_blockers_by_family": [],
+            },
+        },
+    }
+
+
+def _sample_maturity_row(*, maturity_date: str | None = None) -> dict:
+    return {
+        "source_url": "https://example.com/tranche-0",
+        "sponsor_source_url": "https://example.com/sponsor-0",
+        "sponsor_source_type": "alias",
+        "peril_source_type": "explicit_text",
+        "region_source_type": "explicit_text",
+        "maturity_source_type": "bsx_detail",
+        "review_status": "needs_review",
+        "issue_amount": 100000000,
+        "issue_amount_source_type": "manual_override",
+        "issue_amount_source_url": "https://example.com/amount-0",
+        "currency": "USD",
+        "region_codes": ["us"],
+        "listing_status": "Listed",
+        "status": "outstanding",
+        "bma_regulator_class": "Special Purpose Insurer",
+        "attribution_status": {
+            "sponsor": "alias",
+            "trigger": "manual_override",
+            "peril": "explicit_text",
+            "region": "explicit_text",
+            "maturity": "bsx_detail",
+        },
+        "sponsor_attribution_state": "alias_family",
+        "maturity_date": maturity_date,
+    }
+
+
+def _sample_watchlist_row(*, match_scope: str = "public", exact_match_count: int = 1, public_blockers: list[str] | None = None, candidate_reason_codes: list[str] | None = None, confidence_band: str = "high") -> dict:
+    return {
+        "source_url": "https://example.com/event-1",
+        "reason_text": "Possible overlap.",
+        "matched_tranche_rows": [{"tranche_name": "Example Tranche"}],
+        "exact_match_count": exact_match_count,
+        "match_scope": match_scope,
+        "public_blockers": public_blockers or [],
+        "candidate_reason_codes": candidate_reason_codes or [],
+        "confidence_band": confidence_band,
+        "event_geo": {"latitude": 34.0, "longitude": -118.0, "bbox": None},
+    }
 
 
 def test_build_manual_review_queue_prioritizes_material_tranches_over_programme_shells(tmp_path: Path):
@@ -201,19 +397,13 @@ def test_audit_processed_data_stays_consistent_with_dashboard_counts(tmp_path: P
     write_jsonl(settings.processed_dir / "watchlist" / "events.jsonl", [{"event_id": "evt-1"}])
     write_json(
         settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
-        {
-            "kpis": {"next_12m_maturities": 1, "watchlist_matches": 1, "watchlist_review_candidates": 1},
-            "watchlist_diagnostics": {
-                "public_match_count": 1,
-                "candidate_match_count": 1,
-                "public_rows_with_blockers": 0,
-                "candidate_reason_counts": [],
-                "public_blocker_counts": [],
-                "confidence_band_counts": [],
-                "top_candidate_families": [],
-            },
-            "limitations": ["Unresolved Tranche: 1 missing region evidence, 1 broad peril classification."],
-        },
+        _dashboard_payload(
+            as_of=date(2026, 1, 15).isoformat(),
+            next_12m_maturities=1,
+            watchlist_matches=1,
+            watchlist_review_candidates=1,
+            limitations=["Unresolved Tranche: 1 missing region evidence, 1 broad peril classification."],
+        ),
     )
 
     output_path = Path(audit_processed_data(settings=settings))
@@ -257,7 +447,10 @@ def test_collect_audit_payload_excludes_non_geographic_perils_from_region_gap(tm
     )
     write_jsonl(settings.processed_dir / "watchlist" / "matches.jsonl", [])
     write_jsonl(settings.processed_dir / "watchlist" / "events.jsonl", [])
-    write_json(settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json", {"demo_mode": False, "as_of": date.today().isoformat()})
+    write_json(
+        settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
+        _dashboard_payload(as_of=date.today().isoformat()),
+    )
 
     payload = collect_audit_payload(settings)
 
@@ -279,7 +472,10 @@ def test_collect_audit_payload_flags_placeholder_user_agent(tmp_path: Path):
     write_jsonl(settings.processed_dir / "registry" / "tranches.jsonl", [])
     write_jsonl(settings.processed_dir / "watchlist" / "matches.jsonl", [])
     write_jsonl(settings.processed_dir / "watchlist" / "events.jsonl", [])
-    write_json(settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json", {"demo_mode": False, "as_of": date.today().isoformat()})
+    write_json(
+        settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
+        _dashboard_payload(as_of=date.today().isoformat()),
+    )
 
     payload = collect_audit_payload(settings)
 
@@ -304,7 +500,10 @@ def test_collect_audit_payload_flags_missing_manual_metadata(tmp_path: Path):
     write_jsonl(settings.processed_dir / "registry" / "tranches.jsonl", [])
     write_jsonl(settings.processed_dir / "watchlist" / "matches.jsonl", [])
     write_jsonl(settings.processed_dir / "watchlist" / "events.jsonl", [])
-    write_json(settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json", {"demo_mode": False, "as_of": date.today().isoformat()})
+    write_json(
+        settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
+        _dashboard_payload(as_of=date.today().isoformat()),
+    )
 
     payload = collect_audit_payload(settings)
 
@@ -340,7 +539,10 @@ def test_collect_audit_payload_flags_duplicate_sponsor_alias_rows(tmp_path: Path
     write_jsonl(settings.processed_dir / "registry" / "tranches.jsonl", [])
     write_jsonl(settings.processed_dir / "watchlist" / "matches.jsonl", [])
     write_jsonl(settings.processed_dir / "watchlist" / "events.jsonl", [])
-    write_json(settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json", {"demo_mode": False, "as_of": date.today().isoformat()})
+    write_json(
+        settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
+        _dashboard_payload(as_of=date.today().isoformat()),
+    )
 
     payload = collect_audit_payload(settings)
 
@@ -373,13 +575,132 @@ def test_collect_audit_payload_flags_duplicate_tranche_override_rows(tmp_path: P
     write_jsonl(settings.processed_dir / "registry" / "tranches.jsonl", [])
     write_jsonl(settings.processed_dir / "watchlist" / "matches.jsonl", [])
     write_jsonl(settings.processed_dir / "watchlist" / "events.jsonl", [])
-    write_json(settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json", {"demo_mode": False, "as_of": date.today().isoformat()})
+    write_json(
+        settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
+        _dashboard_payload(as_of=date.today().isoformat()),
+    )
 
     payload = collect_audit_payload(settings)
 
     assert "manual_evidence_metadata" in payload["release_gate"]["failed_checks"]
     issues = payload["manual_evidence"]["issues"]
     assert any(issue["issue"].startswith("duplicate_row_key:") for issue in issues)
+
+
+def test_collect_audit_payload_flags_missing_region_geocoding_metadata(tmp_path: Path):
+    settings = _settings(tmp_path / "bad-region-geo")
+    _write_manual_tables(
+        settings,
+        region_rows=[
+            {
+                "region_code": "us",
+                "display_name": "United States",
+                "iso_alpha2": "US",
+                "latitude": "39.8283",
+                "longitude": "-98.5795",
+                "map_zoom_level": "4",
+                "source_url": "",
+                "notes": "",
+            }
+        ],
+    )
+    write_jsonl(settings.processed_dir / "registry" / "tranches.jsonl", [])
+    write_jsonl(settings.processed_dir / "watchlist" / "matches.jsonl", [])
+    write_jsonl(settings.processed_dir / "watchlist" / "events.jsonl", [])
+    write_json(
+        settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
+        _dashboard_payload(as_of=date.today().isoformat()),
+    )
+
+    payload = collect_audit_payload(settings)
+
+    assert "manual_evidence_metadata" in payload["release_gate"]["failed_checks"]
+    issues = payload["manual_evidence"]["issues"]
+    assert any(issue["table"] == "region_geocoding" and issue["issue"] == "missing_source_url" for issue in issues)
+    assert any(issue["table"] == "region_geocoding" and issue["issue"] == "missing_notes" for issue in issues)
+
+
+def test_collect_audit_payload_flags_duplicate_trigger_override_rows(tmp_path: Path):
+    settings = _settings(tmp_path / "dup-trigger")
+    _write_manual_tables(
+        settings,
+        trigger_rows=[
+            {
+                "tranche_name": "Example Re Ltd Series 2026-1",
+                "trigger_type": "indemnity",
+                "source_url": "https://example.com/one",
+                "notes": "first row",
+            },
+            {
+                "tranche_name": "Example Re Ltd Series 2026-1",
+                "trigger_type": "parametric",
+                "source_url": "https://example.com/two",
+                "notes": "duplicate row",
+            },
+        ],
+    )
+    write_jsonl(settings.processed_dir / "registry" / "tranches.jsonl", [])
+    write_jsonl(settings.processed_dir / "watchlist" / "matches.jsonl", [])
+    write_jsonl(settings.processed_dir / "watchlist" / "events.jsonl", [])
+    write_json(
+        settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
+        _dashboard_payload(as_of=date.today().isoformat()),
+    )
+
+    payload = collect_audit_payload(settings)
+
+    assert "manual_evidence_metadata" in payload["release_gate"]["failed_checks"]
+    issues = payload["manual_evidence"]["issues"]
+    assert any(issue["table"] == "trigger_overrides" and issue["issue"].startswith("duplicate_row_key:") for issue in issues)
+
+
+def test_collect_audit_payload_includes_gap_analysis_rows(tmp_path: Path):
+    settings = _settings(tmp_path / "gap-analysis")
+    _write_manual_tables(settings)
+    write_jsonl(
+        settings.processed_dir / "registry" / "tranches.jsonl",
+        [
+            {
+                "tranche_name": "Known Sponsor Missing Amount",
+                "issuer_name": "Known Sponsor Missing Amount Ltd",
+                "status": "outstanding",
+                "is_programme_shell": False,
+                "maturity_date": "2028-01-01",
+                "listed_date": "2026-01-01",
+                "sponsor_name": "Named Sponsor",
+                "region_codes": ["us"],
+                "peril_codes": ["us_wind"],
+                "currency": "USD",
+                "source_url": "https://example.com/amount-gap",
+                "region_inference_method": "explicit_text",
+            },
+            {
+                "tranche_name": "Missing Sponsor Row",
+                "issuer_name": "Missing Sponsor Row Ltd",
+                "status": "outstanding",
+                "is_programme_shell": False,
+                "maturity_date": "2028-02-01",
+                "listed_date": "2026-02-01",
+                "region_codes": ["us"],
+                "peril_codes": ["us_wind"],
+                "currency": "USD",
+                "source_url": "https://example.com/sponsor-gap",
+                "region_inference_method": "explicit_text",
+            },
+        ],
+    )
+    write_jsonl(settings.processed_dir / "watchlist" / "matches.jsonl", [])
+    write_jsonl(settings.processed_dir / "watchlist" / "events.jsonl", [])
+    write_json(
+        settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
+        _dashboard_payload(as_of=date.today().isoformat()),
+    )
+
+    payload = collect_audit_payload(settings)
+
+    assert payload["gap_analysis"]["top_missing_issue_amount_rows"][0]["tranche_name"] == "Known Sponsor Missing Amount"
+    assert payload["gap_analysis"]["top_missing_sponsor_rows"][0]["tranche_name"] == "Missing Sponsor Row"
+    assert payload["gap_analysis"]["top_missing_sponsor_families"][0]["family_name"] == "Missing Sponsor Row Ltd"
 
 
 def test_collect_audit_payload_flags_demo_dashboard(tmp_path: Path):
@@ -436,45 +757,14 @@ def test_collect_audit_payload_release_gate_thresholds(tmp_path: Path):
     write_jsonl(settings.processed_dir / "watchlist" / "events.jsonl", [])
     write_json(
         settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
-        {
-            "demo_mode": False,
-            "as_of": date.today().isoformat(),
-            "kpis": {"next_12m_maturities": 19},
-                "maturity_wall": [
-                    {
-                        "source_url": "https://example.com/tranche-0",
-                        "sponsor_source_url": "https://example.com/sponsor-0",
-                        "sponsor_source_type": "alias",
-                        "peril_source_type": "explicit_text",
-                        "region_source_type": "explicit_text",
-                        "maturity_source_type": "bsx_detail",
-                        "review_status": "needs_review",
-                    }
-                ],
-                "watchlist": [
-                    {
-                        "source_url": "https://example.com/event-1",
-                        "reason_text": "Possible overlap.",
-                        "matched_tranche_rows": [],
-                        "match_scope": "public",
-                        "public_blockers": [],
-                        "candidate_reason_codes": [],
-                        "confidence_band": "high",
-                    }
-                ],
-                "watchlist_review_candidates": [],
-                "watchlist_diagnostics": {
-                    "public_match_count": 0,
-                    "candidate_match_count": 0,
-                    "public_rows_with_blockers": 0,
-                    "candidate_reason_counts": [],
-                    "public_blocker_counts": [],
-                    "confidence_band_counts": [],
-                    "top_candidate_families": [],
-                },
-                "limitations": ["Issuer 18: 1 broad peril classification."],
-            },
-        )
+        _dashboard_payload(
+            as_of=date.today().isoformat(),
+            next_12m_maturities=19,
+            maturity_wall=[_sample_maturity_row()],
+            watchlist=[_sample_watchlist_row(exact_match_count=0)],
+            limitations=["Issuer 18: 1 broad peril classification."],
+        ),
+    )
 
     payload = collect_audit_payload(settings)
 
@@ -487,32 +777,19 @@ def test_validate_public_snapshot_rejects_candidate_rows_in_public_watchlist(tmp
     write_json(
         settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
         {
-            "demo_mode": False,
-            "as_of": date.today().isoformat(),
-            "kpis": {"watchlist_matches": 1},
-            "maturity_wall": [
-                {
-                    "source_url": "https://example.com/tranche-0",
-                    "sponsor_source_url": "https://example.com/sponsor-0",
-                    "sponsor_source_type": "alias",
-                    "peril_source_type": "explicit_text",
-                    "region_source_type": "explicit_text",
-                    "maturity_source_type": "bsx_detail",
-                    "review_status": "needs_review",
-                }
-            ],
-            "watchlist": [
-                {
-                    "source_url": "https://example.com/event-1",
-                    "reason_text": "Possible overlap.",
-                    "matched_tranche_rows": [],
-                    "match_scope": "candidate",
-                    "public_blockers": ["missing_sponsor"],
-                    "candidate_reason_codes": ["missing_sponsor"],
-                    "confidence_band": "medium",
-                }
-            ],
-            "watchlist_review_candidates": [],
+            **_dashboard_payload(
+                as_of=date.today().isoformat(),
+                watchlist_matches=1,
+                maturity_wall=[_sample_maturity_row()],
+                watchlist=[
+                    _sample_watchlist_row(
+                        match_scope="candidate",
+                        public_blockers=["missing_sponsor"],
+                        candidate_reason_codes=["missing_sponsor"],
+                        confidence_band="medium",
+                    )
+                ],
+            ),
             "watchlist_diagnostics": {
                 "public_match_count": 1,
                 "candidate_match_count": 0,
@@ -522,7 +799,6 @@ def test_validate_public_snapshot_rejects_candidate_rows_in_public_watchlist(tmp
                 "confidence_band_counts": [{"confidence_band": "medium", "count": 1}],
                 "top_candidate_families": [],
             },
-            "limitations": ["Example Family: 1 missing sponsor evidence."],
         },
     )
     write_json(
@@ -549,23 +825,15 @@ def test_validate_public_snapshot_rejects_candidate_rows_in_public_watchlist(tmp
         validate_public_snapshot(settings)
 
 
-def test_validate_public_snapshot_rejects_stale_dashboard_as_of(tmp_path: Path):
-    settings = Settings(
-        user_agent="OpenCatWatch test",
-        timeout_seconds=5,
-        polite_delay_seconds=0.0,
-        sec_max_rps=1,
-        data_dir=(tmp_path / "stale"),
-        as_of_date=date(2026, 2, 1),
-    )
+def test_validate_public_snapshot_rejects_missing_enrichment_sections(tmp_path: Path):
+    settings = _settings(tmp_path / "missing-enrichment")
     _write_manual_tables(settings)
-    stale_as_of = "2026-01-11"
     write_json(
         settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
         {
             "demo_mode": False,
-            "as_of": stale_as_of,
-            "kpis": {"next_12m_maturities": 0, "watchlist_matches": 0, "watchlist_review_candidates": 0},
+            "as_of": date.today().isoformat(),
+            "kpis": {"watchlist_matches": 0, "watchlist_review_candidates": 0, "next_12m_maturities": 0},
             "maturity_wall": [],
             "watchlist": [],
             "watchlist_review_candidates": [],
@@ -580,6 +848,30 @@ def test_validate_public_snapshot_rejects_stale_dashboard_as_of(tmp_path: Path):
             },
             "limitations": ["Example Family: 1 missing sponsor evidence."],
         },
+    )
+    write_json(
+        settings.data_dir.parent / "reports" / "data_audit.json",
+        {"release_gate": {"failed_checks": []}},
+    )
+
+    with pytest.raises(RuntimeError, match="dashboard_enrichment_fields"):
+        validate_public_snapshot(settings)
+
+
+def test_validate_public_snapshot_rejects_stale_dashboard_as_of(tmp_path: Path):
+    settings = Settings(
+        user_agent="OpenCatWatch test",
+        timeout_seconds=5,
+        polite_delay_seconds=0.0,
+        sec_max_rps=1,
+        data_dir=(tmp_path / "stale"),
+        as_of_date=date(2026, 2, 1),
+    )
+    _write_manual_tables(settings)
+    stale_as_of = "2026-01-11"
+    write_json(
+        settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
+        _dashboard_payload(as_of=stale_as_of),
     )
     write_json(
         settings.data_dir.parent / "reports" / "data_audit.json",
@@ -617,24 +909,7 @@ def test_validate_public_snapshot_uses_settings_as_of_date_for_dashboard_age(tmp
     _write_manual_tables(settings)
     write_json(
         settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
-        {
-            "demo_mode": False,
-            "as_of": "2026-01-20",
-            "kpis": {"next_12m_maturities": 0, "watchlist_matches": 0, "watchlist_review_candidates": 0},
-            "maturity_wall": [],
-            "watchlist": [],
-            "watchlist_review_candidates": [],
-            "watchlist_diagnostics": {
-                "public_match_count": 0,
-                "candidate_match_count": 0,
-                "public_rows_with_blockers": 0,
-                "candidate_reason_counts": [],
-                "public_blocker_counts": [],
-                "confidence_band_counts": [],
-                "top_candidate_families": [],
-            },
-            "limitations": ["Example Family: 1 missing sponsor evidence."],
-        },
+        _dashboard_payload(as_of="2026-01-20"),
     )
     write_json(
         settings.data_dir.parent / "reports" / "data_audit.json",
@@ -715,34 +990,13 @@ def test_validate_public_snapshot_rejects_dashboard_kpi_mismatch(tmp_path: Path)
     write_json(
         settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
         {
-            "demo_mode": False,
-            "as_of": date.today().isoformat(),
-            "kpis": {"next_12m_maturities": 2, "watchlist_matches": 1, "watchlist_review_candidates": 0},
-            "maturity_wall": [
-                {
-                    "source_url": "https://example.com/tranche-0",
-                    "sponsor_source_url": "https://example.com/sponsor-0",
-                    "sponsor_source_type": "alias",
-                    "peril_source_type": "explicit_text",
-                    "region_source_type": "explicit_text",
-                    "maturity_source_type": "bsx_detail",
-                    "review_status": "needs_review",
-                    "maturity_date": soon,
-                }
-            ],
-            "watchlist": [
-                {
-                    "source_url": "https://example.com/event-1",
-                    "reason_text": "Possible overlap.",
-                    "matched_tranche_rows": [{"tranche_name": "Example Tranche"}],
-                    "exact_match_count": 1,
-                    "match_scope": "public",
-                    "public_blockers": [],
-                    "candidate_reason_codes": [],
-                    "confidence_band": "high",
-                }
-            ],
-            "watchlist_review_candidates": [],
+            **_dashboard_payload(
+                as_of=date.today().isoformat(),
+                next_12m_maturities=2,
+                watchlist_matches=1,
+                maturity_wall=[_sample_maturity_row(maturity_date=soon)],
+                watchlist=[_sample_watchlist_row()],
+            ),
             "watchlist_diagnostics": {
                 "public_match_count": 1,
                 "candidate_match_count": 0,
@@ -752,7 +1006,6 @@ def test_validate_public_snapshot_rejects_dashboard_kpi_mismatch(tmp_path: Path)
                 "confidence_band_counts": [{"confidence_band": "high", "count": 1}],
                 "top_candidate_families": [],
             },
-            "limitations": ["Example Family: 1 missing sponsor evidence."],
         },
     )
     write_json(
@@ -771,34 +1024,13 @@ def test_validate_public_snapshot_rejects_audit_dashboard_divergence(tmp_path: P
     write_json(
         settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json",
         {
-            "demo_mode": False,
-            "as_of": date.today().isoformat(),
-            "kpis": {"next_12m_maturities": 1, "watchlist_matches": 1, "watchlist_review_candidates": 0},
-            "maturity_wall": [
-                {
-                    "source_url": "https://example.com/tranche-0",
-                    "sponsor_source_url": "https://example.com/sponsor-0",
-                    "sponsor_source_type": "alias",
-                    "peril_source_type": "explicit_text",
-                    "region_source_type": "explicit_text",
-                    "maturity_source_type": "bsx_detail",
-                    "review_status": "needs_review",
-                    "maturity_date": soon,
-                }
-            ],
-            "watchlist": [
-                {
-                    "source_url": "https://example.com/event-1",
-                    "reason_text": "Possible overlap.",
-                    "matched_tranche_rows": [{"tranche_name": "Example Tranche"}],
-                    "exact_match_count": 1,
-                    "match_scope": "public",
-                    "public_blockers": [],
-                    "candidate_reason_codes": [],
-                    "confidence_band": "high",
-                }
-            ],
-            "watchlist_review_candidates": [],
+            **_dashboard_payload(
+                as_of=date.today().isoformat(),
+                next_12m_maturities=1,
+                watchlist_matches=1,
+                maturity_wall=[_sample_maturity_row(maturity_date=soon)],
+                watchlist=[_sample_watchlist_row()],
+            ),
             "watchlist_diagnostics": {
                 "public_match_count": 1,
                 "candidate_match_count": 0,
@@ -808,7 +1040,6 @@ def test_validate_public_snapshot_rejects_audit_dashboard_divergence(tmp_path: P
                 "confidence_band_counts": [{"confidence_band": "high", "count": 1}],
                 "top_candidate_families": [],
             },
-            "limitations": ["Example Family: 1 missing sponsor evidence."],
         },
     )
     write_json(

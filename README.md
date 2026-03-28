@@ -1,5 +1,7 @@
 # OpenCatWatch
 
+> **[View the live dashboard →](https://smkwray.github.io/catwatch/)**
+
 OpenCatWatch is an evidence-first public registry and watchlist for catastrophe bonds and closely related publicly visible insurance-linked securities.
 
 This repository is an initial public release and still a work in progress. The current snapshot is meant to be credible, inspectable, and reproducible, not complete.
@@ -114,14 +116,85 @@ make review-queue
 
 If you need to refresh live data first, set a real user agent and an explicit `OPENCATWATCH_AS_OF_DATE`, then run the relevant fetch commands. `fetch-bsx` currently falls back to reparsing saved raw BSX detail pages if the live listing routes are unavailable.
 
+## Frontend
+
+The static site in `apps/site/` is a data-rich dashboard built with plain HTML, CSS, and vanilla JavaScript. It reads precomputed JSON artifacts at runtime — no build step, no framework, no backend service.
+
+### What the frontend shows
+
+The dashboard is built as an editorial, data-journalism-style narrative rather than a generic admin panel:
+
+- **Hero** — headline stats: total capital tracked, active tranches, identified sponsors, 12-month maturing capital
+- **Sponsor concentration** — top 10 sponsors by placed USD capital (horizontal bar chart)
+- **Geographic concentration** — bubble scatter on a world map, sized by capital, colored by dominant peril
+- **Peril mix** — treemap showing how capital splits across peril families (US wind, CA earthquake, mortgage insurance, etc.)
+- **Market timeline** — annual issuance bar chart showing growth from 2018 to present
+- **Maturity runway** — three stat cards (12/24/36 month windows) plus a stacked maturity wall by quarter and peril
+- **Watchlist pressure** — public vs. candidate split, promotion blockers, and most blocked issuer families
+- **Evidence quality** — coverage scorecard with progress bars, gap counts, trigger coverage, and unresolved families
+- **Data tables** — sortable, searchable, paginated views of the public watchlist, review candidates, and maturity wall
+
+### Data sources
+
+The site loads two JSON files:
+
+| File | Path (relative to site root) | Required | Contents |
+|------|------------------------------|----------|----------|
+| Dashboard | `./data/dashboard.json` | Yes | KPIs, maturity wall, watchlist, diagnostics, matrix, notes, limitations |
+| Audit | `./data/audit.json` | No (graceful degradation) | Coverage metrics, release-gate checks, review candidates |
+
+`dashboard.json` is produced by `make site`. To make audit data available on the deployed site, copy the audit output into the site data directory:
+
+```bash
+cp reports/data_audit.json apps/site/data/audit.json
+```
+
+### Dark / light mode
+
+The theme system uses CSS custom properties on `[data-theme]` with a toggle button in the hero:
+
+1. On first load, checks `localStorage` for a saved preference.
+2. Falls back to the OS preference via `prefers-color-scheme`.
+3. Clicking the toggle switches the theme, persists to `localStorage`, and dispatches a `themechange` custom event on `<html>`.
+4. All ECharts instances listen for `themechange` and recompute their full option objects — tooltip backgrounds, axis labels, gridlines, legend text, and series colors are all re-applied, not just the page chrome.
+
+### Charting
+
+Charts use [Apache ECharts 5](https://echarts.apache.org/) loaded from the jsDelivr CDN. ECharts was chosen because:
+
+- Rich interactive tooltips, zoom, and legend filtering out of the box
+- Full programmatic theme control — chart options are regenerated from a `getChartTheme()` helper on every theme toggle
+- No build step; works from a CDN `<script>` tag
+- Responsive resize via `chart.resize()` on window resize events
+
+All chart text, axes, gridlines, tooltips, and legends use theme-aware color tokens so they remain readable in both light and dark mode.
+
+### Local preview
+
+```bash
+# From the repo root — any static file server works
+cd apps/site && python3 -m http.server 8000
+# Open http://localhost:8000
+```
+
+Or use VS Code's Live Server, `npx serve apps/site`, etc. No npm install or build step is needed.
+
 ## Publishing GitHub Pages
 
 The repo is designed to publish the committed snapshot in `apps/site/` directly. The Pages workflow does not fetch live data; it deploys the checked-in dashboard and accompanying assets from the current initial-release snapshot.
 
+To include audit metrics on the deployed site, copy the audit JSON before committing:
+
+```bash
+cp reports/data_audit.json apps/site/data/audit.json
+```
+
 ## Repository Map
 
 - `src/opencatwatch/` - fetchers, pipelines, CLI
-- `apps/site/` - static dashboard
+- `apps/site/` - static dashboard (HTML/CSS/JS + committed JSON data)
+- `apps/site/assets/` - styles, theme toggle, main app logic
+- `apps/site/data/` - committed dashboard snapshot
 - `docs/` - public reference docs only
 - `catalog/sources.yml` - source catalog
 - `data/manual/` - tracked manual evidence tables

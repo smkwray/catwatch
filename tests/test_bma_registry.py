@@ -677,6 +677,135 @@ def test_build_registry_manual_sponsor_override_preserves_provenance(tmp_path: P
     assert tranche["sponsor_source_note"] == "manual sponsor fix"
 
 
+def test_build_registry_infers_parametric_trigger_from_exact_title_keyword(tmp_path: Path):
+    settings = _settings(tmp_path)
+    title = "Puerto Rico Parametric Re Ltd. Series 2024-1 Class A PAR VR Notes due June 7, 2027"
+    write_jsonl(
+        settings.processed_dir / "bsx" / "company_records.jsonl",
+        [
+            {
+                "title": title,
+                "issuer_name": "Puerto Rico Parametric Re Ltd",
+                "listing_status": "Listed",
+                "source_url": "https://example.com/puerto-rico",
+                "retrieved_at": "2026-03-28T00:00:00+00:00",
+                "extraction_method": "test",
+            }
+        ],
+    )
+
+    build_registry(settings)
+    tranche = read_jsonl(settings.processed_dir / "registry" / "tranches.jsonl")[0]
+
+    assert tranche["trigger_type"] == "parametric"
+    assert tranche["trigger_source_type"] == "title_keyword"
+    assert tranche["trigger_source_url"] == "https://example.com/puerto-rico"
+    assert tranche["attribution_status"]["trigger"] == "title_keyword"
+
+
+def test_build_registry_trigger_override_preserves_provenance(tmp_path: Path):
+    settings = _settings(tmp_path)
+    title = "Example Re Ltd Series 2026-1 Class A"
+    write_jsonl(
+        settings.processed_dir / "bsx" / "company_records.jsonl",
+        [
+            {
+                "title": title,
+                "issuer_name": "Example Re Ltd",
+                "listing_status": "Listed",
+                "source_url": "https://example.com/example-re",
+                "retrieved_at": "2026-03-28T00:00:00+00:00",
+                "extraction_method": "test",
+            }
+        ],
+    )
+    settings.manual_dir.mkdir(parents=True, exist_ok=True)
+    with (settings.manual_dir / "trigger_overrides.csv").open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["tranche_name", "trigger_type", "source_url", "notes"])
+        writer.writerow(
+            [
+                title,
+                "industry_loss_index",
+                "https://example.com/trigger-evidence",
+                "Exact tranche trigger evidence.",
+            ]
+        )
+
+    build_registry(settings)
+    tranche = read_jsonl(settings.processed_dir / "registry" / "tranches.jsonl")[0]
+
+    assert tranche["trigger_type"] == "industry_loss_index"
+    assert tranche["trigger_source_type"] == "manual_override"
+    assert tranche["trigger_source_url"] == "https://example.com/trigger-evidence"
+    assert tranche["trigger_source_note"] == "Exact tranche trigger evidence."
+    assert tranche["attribution_status"]["trigger"] == "manual_override"
+
+
+def test_build_registry_issue_amount_override_preserves_provenance(tmp_path: Path):
+    settings = _settings(tmp_path)
+    title = "Example Re Ltd Series 2026-1 Class A"
+    write_jsonl(
+        settings.processed_dir / "bsx" / "company_records.jsonl",
+        [
+            {
+                "title": title,
+                "issuer_name": "Example Re Ltd",
+                "listing_status": "Listed",
+                "source_url": "https://example.com/example-re",
+                "retrieved_at": "2026-03-28T00:00:00+00:00",
+                "extraction_method": "test",
+            }
+        ],
+    )
+    settings.manual_dir.mkdir(parents=True, exist_ok=True)
+    with (settings.manual_dir / "tranche_overrides.csv").open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["tranche_name", "field_name", "override_value", "source_url", "notes"])
+        writer.writerow(
+            [
+                title,
+                "issue_amount",
+                "125000000",
+                "https://example.com/amount-evidence",
+                "Exact tranche issue amount evidence.",
+            ]
+        )
+
+    build_registry(settings)
+    tranche = read_jsonl(settings.processed_dir / "registry" / "tranches.jsonl")[0]
+
+    assert tranche["issue_amount"] == "125000000"
+    assert tranche["issue_amount_source_type"] == "manual_override"
+    assert tranche["issue_amount_source_url"] == "https://example.com/amount-evidence"
+    assert tranche["issue_amount_source_note"] == "Exact tranche issue amount evidence."
+
+
+def test_build_registry_extracts_issue_amount_from_title_when_explicit(tmp_path: Path):
+    settings = _settings(tmp_path)
+    title = "Maschpark Re Ltd. PAR VR Note $100,000,000 Series 2024-1 Class A Notes Due Jan 10 2028"
+    write_jsonl(
+        settings.processed_dir / "bsx" / "company_records.jsonl",
+        [
+            {
+                "title": title,
+                "issuer_name": "Maschpark Re Ltd",
+                "listing_status": "Listed",
+                "source_url": "https://example.com/maschpark",
+                "retrieved_at": "2026-03-28T00:00:00+00:00",
+                "extraction_method": "test",
+            }
+        ],
+    )
+
+    build_registry(settings)
+    tranche = read_jsonl(settings.processed_dir / "registry" / "tranches.jsonl")[0]
+
+    assert tranche["issue_amount"] == "100000000"
+    assert tranche["issue_amount_source_type"] == "title_embedded_amount"
+    assert tranche["issue_amount_source_url"] == "https://example.com/maschpark"
+
+
 def test_build_registry_blank_sponsor_override_can_clear_family_alias(tmp_path: Path):
     settings = _settings(tmp_path)
     title = "Kaith Re Ltd Li Re 2025-1 Bond due July 15, 2026"

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-27T00:00:00Z",
+  "generated_at": "2026-03-28T00:00:00Z",
   "counts": {
     "tranches": 770,
     "material_tranches": 640,
@@ -12,8 +12,11 @@
   "coverage": {
     "sponsor_coverage_pct": 94.53,
     "region_coverage_pct": 97.63,
+    "amount_coverage_pct": 91.09,
+    "trigger_coverage_pct": 7.81,
     "identified_sponsors": 120,
-    "inferred_region_rows": 555
+    "inferred_region_rows": 555,
+    "geocoded_region_rows": 617
   },
   "issues": {
     "broad_peril_matches": 2129,
@@ -22,7 +25,10 @@
     "public_watchlist_rows_with_blockers": 0,
     "candidate_match_ratio_pct": 62.65,
     "outstanding_missing_maturity": 6,
-    "broad_peril_rows": 17
+    "broad_peril_rows": 17,
+    "missing_issue_amount": 57,
+    "missing_trigger_type": 590,
+    "missing_region_geocoding": 0
   },
   "dashboard_consistency": {
     "actual_next_12m_maturities": 130,
@@ -44,11 +50,312 @@
         "issues": 0
       },
       "tranche_overrides": {
-        "rows": 40,
+        "rows": 84,
+        "issues": 0
+      },
+      "region_geocoding": {
+        "rows": 12,
+        "issues": 0
+      },
+      "trigger_overrides": {
+        "rows": 49,
         "issues": 0
       }
     },
     "issues": []
+  },
+  "gap_analysis": {
+    "top_missing_issue_amount_rows": [
+      {
+        "tranche_name": "Home Re 2026-1 Ltd Class B-1 RegS Series 2026-1 Mortgage Insurance-Linked Notes due Jan 25, 2036",
+        "sponsor_name": "MGIC Investment Corporation",
+        "listed_date": "2026-01-29",
+        "maturity_date": "2036-01-25",
+        "currency": "USD",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941067"
+      },
+      {
+        "tranche_name": "Home Re 2026-1 Ltd Class M-2 RegS Series 2026-1 Mortgage Insurance-Linked Notes due Jan 25, 2036",
+        "sponsor_name": "MGIC Investment Corporation",
+        "listed_date": "2026-01-29",
+        "maturity_date": "2036-01-25",
+        "currency": "USD",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941071"
+      },
+      {
+        "tranche_name": "Home Re 2026-1 Ltd Class M1-A RegS Series 2026-1 Mortgage Insurance-Linked Notes due Jan 25, 2036",
+        "sponsor_name": "MGIC Investment Corporation",
+        "listed_date": "2026-01-29",
+        "maturity_date": "2036-01-25",
+        "currency": "USD",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941068"
+      },
+      {
+        "tranche_name": "Home Re 2026-1 Ltd Class M1-B RegS Series 2026-1 Mortgage Insurance-Linked Notes due Jan 25, 2036",
+        "sponsor_name": "MGIC Investment Corporation",
+        "listed_date": "2026-01-29",
+        "maturity_date": "2036-01-25",
+        "currency": "USD",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941069"
+      },
+      {
+        "tranche_name": "Home Re 2026-1 Ltd Class M1-C RegS Series 2026-1 Mortgage Insurance-Linked Notes due Jan 25, 2036",
+        "sponsor_name": "MGIC Investment Corporation",
+        "listed_date": "2026-01-29",
+        "maturity_date": "2036-01-25",
+        "currency": "USD",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941070"
+      },
+      {
+        "tranche_name": "Lion Re DAC - Series 2025-1 Class A Principal At-Risk Variable Rate Notes due June 15, 2029",
+        "sponsor_name": "Assicurazioni Generali S.p.A.",
+        "listed_date": "2025-05-29",
+        "maturity_date": "2029-06-15",
+        "currency": "EUR",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940920"
+      },
+      {
+        "tranche_name": "Lion Re DAC - Series 2025-1 Class B Principal At-Risk Variable Rate Notes due June 15, 2029",
+        "sponsor_name": "Assicurazioni Generali S.p.A.",
+        "listed_date": "2025-05-29",
+        "maturity_date": "2029-06-15",
+        "currency": "EUR",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940922"
+      },
+      {
+        "tranche_name": "Yosemite Re Ltd Series 2025-1 Class A PAR Variable Rate Notes due June 7, 2028",
+        "sponsor_name": "Core Specialty Insurance Holdings, Inc.",
+        "listed_date": "2025-03-25",
+        "maturity_date": "2028-06-07",
+        "currency": "USD",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940856"
+      },
+      {
+        "tranche_name": "London Bridge 2 PCC Limited - Vision 2039 Series 2025-1 Class A PAR VR Notes due Apr 6, 2028",
+        "sponsor_name": "Flood Re",
+        "listed_date": "2025-03-17",
+        "maturity_date": "2028-04-06",
+        "currency": "GBP",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940854"
+      },
+      {
+        "tranche_name": "Voussoir Re Ltd Series 2025-3 Non-Voting Redeemable Preferred Shares",
+        "sponsor_name": "Arch Capital Group Ltd.",
+        "listed_date": "2025-02-28",
+        "maturity_date": null,
+        "currency": "USD",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940843"
+      },
+      {
+        "tranche_name": "Herbie Re Ltd. Series 2024-2 PAR VR Class A Notes due January 8, 2029",
+        "sponsor_name": "Fidelis Insurance Group",
+        "listed_date": "2024-12-27",
+        "maturity_date": "2029-01-08",
+        "currency": "USD",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940790"
+      },
+      {
+        "tranche_name": "Herbie Re Ltd. Series 2024-2 PAR VR Class B Notes due January 8, 2029",
+        "sponsor_name": "Fidelis Insurance Group",
+        "listed_date": "2024-12-27",
+        "maturity_date": "2029-01-08",
+        "currency": "USD",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940788"
+      },
+      {
+        "tranche_name": "Herbie Re Ltd. Series 2024-2 PAR VR Class C Notes due January 8, 2027",
+        "sponsor_name": "Fidelis Insurance Group",
+        "listed_date": "2024-12-27",
+        "maturity_date": "2027-01-08",
+        "currency": "USD",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940789"
+      },
+      {
+        "tranche_name": "London Bridge 2 PCC Limited - 'Fuchsia 2' - Series 2024-1 Class A PAR VR Notes due April 6, 2028",
+        "sponsor_name": "Beazley",
+        "listed_date": "2024-12-23",
+        "maturity_date": "2028-04-06",
+        "currency": "USD",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940787"
+      },
+      {
+        "tranche_name": "Mystic Re IV Ltd. Series 2025-1 Class A PAR VR Notes due Jan 10, 2028",
+        "sponsor_name": "Liberty Mutual",
+        "listed_date": "2024-12-23",
+        "maturity_date": "2028-01-10",
+        "currency": "USD",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940791"
+      }
+    ],
+    "top_missing_sponsor_rows": [
+      {
+        "tranche_name": "Eclipse Re Ltd Series 2026-1A Notes - SAC EC0078 - due December 31, 2027",
+        "issuer_name": "Eclipse Re Ltd",
+        "listed_date": "2026-03-05",
+        "maturity_date": "2027-12-31",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941120"
+      },
+      {
+        "tranche_name": "Nascent Re Ltd SAC “OFS Re” - Series 2026-001 Preferred Shares due 31 Dec 2026",
+        "issuer_name": "Nascent Re Ltd SAC “OFS Re” - EUR",
+        "listed_date": "2026-02-27",
+        "maturity_date": "2026-12-31",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941109"
+      },
+      {
+        "tranche_name": "Seaside Re 2026-11 Bond Due 15 January 2027",
+        "issuer_name": "Seaside Re 2026-11",
+        "listed_date": "2026-01-23",
+        "maturity_date": "2027-01-15",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941060"
+      },
+      {
+        "tranche_name": "Seaside Re 2026-12 Bond Due 15 January 2027",
+        "issuer_name": "Seaside Re 2026-12",
+        "listed_date": "2026-01-23",
+        "maturity_date": "2027-01-15",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941061"
+      },
+      {
+        "tranche_name": "Seaside Re 2026-13 Bond Due 15 January 2027",
+        "issuer_name": "Seaside Re 2026-13",
+        "listed_date": "2026-01-23",
+        "maturity_date": "2027-01-15",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941062"
+      },
+      {
+        "tranche_name": "Seaside Re 2026-14 Bond Due 15 January 2027",
+        "issuer_name": "Seaside Re 2026-14",
+        "listed_date": "2026-01-23",
+        "maturity_date": "2027-01-15",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941063"
+      },
+      {
+        "tranche_name": "Seaside Re 2026-15 Bond Due 15 January 2027",
+        "issuer_name": "Seaside Re 2026-15",
+        "listed_date": "2026-01-23",
+        "maturity_date": "2027-01-15",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941064"
+      },
+      {
+        "tranche_name": "Seaside Re 2026-31 Bond Due 15 January 2027",
+        "issuer_name": "Seaside Re 2026-31",
+        "listed_date": "2026-01-23",
+        "maturity_date": "2027-01-15",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941065"
+      },
+      {
+        "tranche_name": "Seaside Re 2026-41 Bond Due 15 January 2027",
+        "issuer_name": "Seaside Re 2026-41",
+        "listed_date": "2026-01-23",
+        "maturity_date": "2027-01-15",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941066"
+      },
+      {
+        "tranche_name": "Eclipse Re Ltd Series 2025-8A Notes - SAC EC0077 - due September 30, 2026",
+        "issuer_name": "Eclipse Re Ltd",
+        "listed_date": "2025-11-13",
+        "maturity_date": "2026-09-30",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941005"
+      },
+      {
+        "tranche_name": "Kaith Re Ltd Li Re 2025-2 Bond due October 15, 2026",
+        "issuer_name": "Kaith Re Ltd Li Re 2025-2",
+        "listed_date": "2025-10-21",
+        "maturity_date": "2026-10-15",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940990"
+      },
+      {
+        "tranche_name": "Artex Axcell Re (Bermuda) Ltd ILS Note Program II at Risk PI0059 Kettering Notes due Mar 31, 2026",
+        "issuer_name": "Artex Axcell Re (Bermuda) Ltd",
+        "listed_date": "2025-09-15",
+        "maturity_date": "2026-03-15",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940980"
+      },
+      {
+        "tranche_name": "Eclipse Re Ltd Series 2025-4A Notes - SAC EC0073 - due May 31, 2026",
+        "issuer_name": "Eclipse Re Ltd",
+        "listed_date": "2025-09-09",
+        "maturity_date": "2026-05-31",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940978"
+      },
+      {
+        "tranche_name": "Eclipse Re Ltd Series 2025-6A Notes - SAC EC0075 - due May 31, 2026",
+        "issuer_name": "Eclipse Re Ltd",
+        "listed_date": "2025-09-09",
+        "maturity_date": "2026-05-31",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940979"
+      },
+      {
+        "tranche_name": "Eclipse Re Ltd Series 2025-3A Notes - SAC EC0069 - due May 31, 2026",
+        "issuer_name": "Eclipse Re Ltd",
+        "listed_date": "2025-09-05",
+        "maturity_date": "2026-05-31",
+        "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940976"
+      }
+    ],
+    "top_missing_sponsor_families": [
+      {
+        "family_name": "Eclipse Re Ltd",
+        "missing_sponsor_rows": 9
+      },
+      {
+        "family_name": "Mangrove Risk Solutions Bermuda Ltd",
+        "missing_sponsor_rows": 4
+      },
+      {
+        "family_name": "Artex Axcell Re (Bermuda) Limited",
+        "missing_sponsor_rows": 3
+      },
+      {
+        "family_name": "Nascent Re Ltd SAC “OFS Re” - EUR",
+        "missing_sponsor_rows": 1
+      },
+      {
+        "family_name": "Seaside Re 2026-11",
+        "missing_sponsor_rows": 1
+      },
+      {
+        "family_name": "Seaside Re 2026-12",
+        "missing_sponsor_rows": 1
+      },
+      {
+        "family_name": "Seaside Re 2026-13",
+        "missing_sponsor_rows": 1
+      },
+      {
+        "family_name": "Seaside Re 2026-14",
+        "missing_sponsor_rows": 1
+      },
+      {
+        "family_name": "Seaside Re 2026-15",
+        "missing_sponsor_rows": 1
+      },
+      {
+        "family_name": "Seaside Re 2026-31",
+        "missing_sponsor_rows": 1
+      },
+      {
+        "family_name": "Seaside Re 2026-41",
+        "missing_sponsor_rows": 1
+      },
+      {
+        "family_name": "Kaith Re Ltd Li Re 2025-2",
+        "missing_sponsor_rows": 1
+      },
+      {
+        "family_name": "Artex Axcell Re (Bermuda) Ltd",
+        "missing_sponsor_rows": 1
+      },
+      {
+        "family_name": "Seaside Re 2025-61",
+        "missing_sponsor_rows": 1
+      },
+      {
+        "family_name": "Kaith Re Ltd Li Re 2025-1",
+        "missing_sponsor_rows": 1
+      }
+    ]
   },
   "public_limitations": [
     "Mangrove Risk Solutions Bermuda Ltd: 4 missing sponsor evidence, 4 missing region evidence, 4 broad peril classification.",
@@ -139,6 +446,13 @@
         "actual": true,
         "target": true,
         "detail": "Dashboard payload exposes candidate diagnostics and limitations for the public watchlist split."
+      },
+      {
+        "name": "dashboard_enrichment_fields",
+        "passed": true,
+        "actual": true,
+        "target": true,
+        "detail": "Dashboard payload exposes the backend enrichment sections and event geo contract."
       },
       {
         "name": "manual_evidence_metadata",

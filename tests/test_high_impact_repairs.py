@@ -117,6 +117,57 @@ def test_build_watchlist_skips_programme_shells_and_writes_events(tmp_path: Path
     assert "missing_sponsor" in matches[0]["public_blockers"]
 
 
+def test_build_watchlist_copies_event_geo_into_events_and_matches(tmp_path: Path):
+    settings = _settings(tmp_path)
+    write_jsonl(
+        settings.processed_dir / "registry" / "tranches.jsonl",
+        [
+            {
+                "tranche_id": "quake-1",
+                "tranche_name": "California Quake Tranche",
+                "record_type": "tranche",
+                "is_programme_shell": False,
+                "status": "outstanding",
+                "peril_codes": ["ca_earthquake"],
+                "region_codes": ["california"],
+                "risk_start_date": "2025-01-01",
+                "risk_end_date": "2027-01-01",
+                "sponsor_name": "Example Sponsor",
+                "region_source_type": "explicit_text",
+                "maturity_date": "2027-01-01",
+            }
+        ],
+    )
+    write_jsonl(settings.processed_dir / "nws" / "alerts_active.jsonl", [])
+    write_jsonl(
+        settings.processed_dir / "usgs" / "events.jsonl",
+        [
+            {
+                "source_event_id": "usgs-1",
+                "event_name": "M 6.1 - offshore California",
+                "peril_code": "earthquake",
+                "start_time": "2026-04-01T00:00:00+00:00",
+                "end_time": None,
+                "region_codes": ["california"],
+                "latitude": 34.123,
+                "longitude": -118.456,
+                "source_url": "https://example.com/usgs-1",
+            }
+        ],
+    )
+
+    build_watchlist(settings)
+    events = read_jsonl(settings.processed_dir / "watchlist" / "events.jsonl")
+    matches = read_jsonl(settings.processed_dir / "watchlist" / "matches.jsonl")
+
+    assert events[0]["event_latitude"] == 34.123
+    assert events[0]["event_longitude"] == -118.456
+    assert events[0]["event_bbox"] is None
+    assert matches[0]["event_latitude"] == 34.123
+    assert matches[0]["event_longitude"] == -118.456
+    assert matches[0]["event_bbox"] is None
+
+
 def test_build_watchlist_includes_ibtracs_events(tmp_path: Path):
     settings = _settings(tmp_path)
     write_jsonl(
@@ -278,6 +329,8 @@ def test_build_site_data_uses_event_metadata_and_correct_maturity_kpi(tmp_path: 
                 "source_url": "https://example.com/t2",
                 "sponsor_source": "bsx",
                 "sponsor_source_url": "https://example.com/t2",
+                "issue_amount": "125000000",
+                "currency": "USD",
             },
             {
                 "tranche_id": "p1",
@@ -304,6 +357,9 @@ def test_build_site_data_uses_event_metadata_and_correct_maturity_kpi(tmp_path: 
                 "region_codes": ["california"],
                 "source_name": "nws",
                 "source_url": "https://example.com/event",
+                "event_latitude": 35.0,
+                "event_longitude": -119.0,
+                "event_bbox": None,
             }
         ],
     )
@@ -316,12 +372,27 @@ def test_build_site_data_uses_event_metadata_and_correct_maturity_kpi(tmp_path: 
                 "event_name": "California Red Flag Warning",
                 "event_peril_code": "ca_wildfire",
                 "event_region_codes": ["california"],
+                "event_latitude": 35.0,
+                "event_longitude": -119.0,
+                "event_bbox": None,
                 "tranche_id": "t1",
                 "tranche_name": "Example Re 2026-1 Class A",
                 "score": 0.9,
                 "reasons": ["peril_match", "active_date_overlap", "region_overlap"],
             }
         ],
+    )
+    manual_dir = settings.data_dir.parent / "data" / "manual"
+    manual_dir.mkdir(parents=True, exist_ok=True)
+    (manual_dir / "region_geocoding.csv").write_text(
+        "\n".join(
+            [
+                "region_code,display_name,iso_alpha2,latitude,longitude,map_zoom_level,source_url,notes",
+                "california,\"California, US\",US,36.7783,-119.4179,5,https://example.com/california,Representative centroid.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
     )
 
     build_site_data(settings)
@@ -334,6 +405,7 @@ def test_build_site_data_uses_event_metadata_and_correct_maturity_kpi(tmp_path: 
     assert dashboard["watchlist"][0]["reason_text"] == "1 public peril/date/geography overlap in the public tranche registry."
     assert dashboard["watchlist"][0]["match_scope"] == "public"
     assert dashboard["watchlist"][0]["candidate_reason_codes"] == []
+    assert dashboard["watchlist"][0]["promotion_hint_codes"] == []
     assert dashboard["watchlist_diagnostics"]["public_match_count"] == 1
     assert dashboard["watchlist_diagnostics"]["candidate_match_count"] == 0
     assert dashboard["limitations"] == []
@@ -341,6 +413,22 @@ def test_build_site_data_uses_event_metadata_and_correct_maturity_kpi(tmp_path: 
     assert dashboard["watchlist"][0]["matched_tranche_rows"][0]["sponsor_source_url"] == "https://example.com/sponsor"
     assert dashboard["watchlist"][0]["matched_tranche_rows"][0]["sponsor_source_type"] == "alias"
     assert "peril" in dashboard["watchlist"][0]["matched_tranche_rows"][0]["reason_text"]
+    assert dashboard["watchlist"][0]["event_geo"] == {"latitude": 35.0, "longitude": -119.0, "bbox": None}
+    assert dashboard["maturity_wall"][0]["issue_amount"] is None
+    assert dashboard["maturity_wall"][0]["issue_amount_source_type"] == "missing"
+    assert dashboard["maturity_wall"][0]["currency"] is None
+    assert dashboard["maturity_wall"][0]["region_codes"] == ["california"]
+    assert dashboard["maturity_wall"][0]["listing_status"] is None
+    assert dashboard["maturity_wall"][0]["status"] == "outstanding"
+    assert dashboard["capital_summary"]["by_listed_year"][0]["group_key"] == "2025"
+    assert dashboard["coverage_gaps"]["missing_trigger_type"] == 2
+    assert dashboard["trigger_summary"]["known_trigger_rows"] == 0
+    assert dashboard["region_map"][0]["region_code"] == "california"
+    assert "top_missing_issue_amount" in dashboard["gap_spotlight"]
+    assert dashboard["story_blocks"]["watchlist_pressure"]["public_match_count"] == 1
+    assert dashboard["story_blocks"]["top_perils_by_capital"][0]["peril_code"] == "ca_wildfire"
+    assert dashboard["story_blocks"]["market_timeline"][0]["listed_year"] == "2025"
+    assert dashboard["story_blocks"]["coverage_scorecard"]["material_tranche_count"] == 2
 
 
 def test_build_site_data_separates_review_candidates_from_public_watchlist(tmp_path: Path):
@@ -431,6 +519,11 @@ def test_build_site_data_separates_review_candidates_from_public_watchlist(tmp_p
         "region_unknown",
         "weak_region_evidence",
     }
+    assert set(dashboard["watchlist_review_candidates"][0]["promotion_hint_codes"]) == {
+        "add_sponsor_evidence",
+        "replace_broad_peril_classification",
+        "strengthen_region_evidence",
+    }
     assert dashboard["watchlist_diagnostics"]["candidate_reason_counts"][0]["reason_code"] in {
         "broad_peril",
         "broad_peril_match",
@@ -438,6 +531,65 @@ def test_build_site_data_separates_review_candidates_from_public_watchlist(tmp_p
         "region_unknown",
         "weak_region_evidence",
     }
+    assert dashboard["watchlist_diagnostics"]["promotion_hint_counts"][0]["hint_code"] in {
+        "add_sponsor_evidence",
+        "replace_broad_peril_classification",
+        "strengthen_region_evidence",
+    }
+    assert dashboard["story_blocks"]["watchlist_pressure"]["candidate_match_count"] == 1
+    assert dashboard["story_blocks"]["candidate_blockers_summary"]["top_promotion_hints"][0]["hint_code"] in {
+        "add_sponsor_evidence",
+        "replace_broad_peril_classification",
+        "strengthen_region_evidence",
+    }
+
+
+def test_build_site_data_caps_region_concentration_share_for_overlapping_regions(tmp_path: Path):
+    settings = _settings(tmp_path)
+    write_jsonl(
+        settings.processed_dir / "registry" / "tranches.jsonl",
+        [
+            {
+                "tranche_id": "t1",
+                "programme_id": "prog-1",
+                "tranche_name": "Overlap Re",
+                "record_type": "tranche",
+                "is_programme_shell": False,
+                "status": "outstanding",
+                "listed_date": "2025-06-01",
+                "maturity_date": "2027-06-01",
+                "issue_amount": 100000000,
+                "currency": "USD",
+                "peril_codes": ["us_wind"],
+                "region_codes": ["us", "texas"],
+                "sponsor_name": "Example Sponsor",
+                "sponsor_source": "manual",
+            }
+        ],
+    )
+    write_jsonl(settings.processed_dir / "watchlist" / "events.jsonl", [])
+    write_jsonl(settings.processed_dir / "watchlist" / "matches.jsonl", [])
+
+    manual_dir = settings.data_dir.parent / "data" / "manual"
+    manual_dir.mkdir(parents=True, exist_ok=True)
+    (manual_dir / "region_geocoding.csv").write_text(
+        "\n".join(
+            [
+                "region_code,display_name,iso_alpha2,latitude,longitude,map_zoom_level,source_url,notes",
+                "us,United States,US,39.8283,-98.5795,4,https://example.com/us,Representative centroid.",
+                "texas,\"Texas, US\",US,31.0,-100.0,5,https://example.com/texas,Representative centroid.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    build_site_data(settings)
+    dashboard = read_json(settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json")
+
+    concentration = dashboard["story_blocks"]["capital_concentration"][0]
+    assert concentration["currency"] == "USD"
+    assert concentration["top_3_region_share_pct"] == 100.0
 
 
 def test_build_site_data_deduplicates_matched_tranche_rows(tmp_path: Path):

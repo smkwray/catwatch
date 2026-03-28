@@ -1,0 +1,442 @@
+{
+  "generated_at": "2026-03-27T00:00:00Z",
+  "counts": {
+    "tranches": 770,
+    "material_tranches": 640,
+    "programme_shells": 130,
+    "watchlist_matches": 17108,
+    "public_watchlist_matches": 6390,
+    "watchlist_review_candidates": 10718,
+    "watchlist_events": 423
+  },
+  "coverage": {
+    "sponsor_coverage_pct": 94.53,
+    "region_coverage_pct": 97.63,
+    "identified_sponsors": 120,
+    "inferred_region_rows": 555
+  },
+  "issues": {
+    "broad_peril_matches": 2129,
+    "unknown_region_matches": 1413,
+    "watchlist_review_candidates": 10718,
+    "public_watchlist_rows_with_blockers": 0,
+    "candidate_match_ratio_pct": 62.65,
+    "outstanding_missing_maturity": 6,
+    "broad_peril_rows": 17
+  },
+  "dashboard_consistency": {
+    "actual_next_12m_maturities": 130,
+    "dashboard_next_12m_maturities": 130,
+    "next_12m_gap": 0,
+    "dashboard_public_watchlist_matches": 6390,
+    "actual_public_watchlist_matches": 6390,
+    "dashboard_review_candidates": 10718,
+    "actual_review_candidates": 10718,
+    "dashboard_public_watchlist_blockers": 0,
+    "actual_public_watchlist_blockers": 0,
+    "dashboard_demo_mode": false,
+    "dashboard_age_days": 0
+  },
+  "manual_evidence": {
+    "summary": {
+      "sponsor_aliases": {
+        "rows": 136,
+        "issues": 0
+      },
+      "tranche_overrides": {
+        "rows": 40,
+        "issues": 0
+      }
+    },
+    "issues": []
+  },
+  "public_limitations": [
+    "Mangrove Risk Solutions Bermuda Ltd: 4 missing sponsor evidence, 4 missing region evidence, 4 broad peril classification.",
+    "Eclipse Re Ltd: 9 missing sponsor evidence, 1 missing region evidence, 1 broad peril classification.",
+    "Artex Axcell Re (Bermuda) Limited: 3 missing sponsor evidence, 3 broad peril classification.",
+    "Voussoir Re Ltd: 6 missing maturity.",
+    "Artex Axcell Re (Bermuda) Ltd: 1 missing sponsor evidence, 1 missing region evidence, 1 broad peril classification.",
+    "Kaith Re Ltd Li Re 2025-1: 1 missing sponsor evidence, 1 missing region evidence, 1 broad peril classification.",
+    "Kaith Re Ltd Li Re 2025-2: 1 missing sponsor evidence, 1 missing region evidence, 1 broad peril classification.",
+    "Nascent Re Ltd SAC “OFS Re” - EUR: 1 missing sponsor evidence, 1 missing region evidence, 1 broad peril classification."
+  ],
+  "release_gate": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "explicit_as_of_date",
+        "passed": true,
+        "actual": true,
+        "target": true,
+        "detail": "Release builds must pin OPENCATWATCH_AS_OF_DATE for reproducible snapshots."
+      },
+      {
+        "name": "sponsor_coverage",
+        "passed": true,
+        "actual": 94.53,
+        "target": ">=70.0",
+        "detail": "Sponsor coverage on material tranches."
+      },
+      {
+        "name": "region_coverage",
+        "passed": true,
+        "actual": 97.63,
+        "target": ">=95.0",
+        "detail": "Region coverage on material tranches."
+      },
+      {
+        "name": "outstanding_missing_maturity",
+        "passed": true,
+        "actual": 6,
+        "target": "<=40",
+        "detail": "Outstanding material rows without maturity."
+      },
+      {
+        "name": "broad_peril_rows",
+        "passed": true,
+        "actual": 17,
+        "target": "<=25",
+        "detail": "Registry rows still using other_property_cat."
+      },
+      {
+        "name": "public_watchlist_rows_with_blockers",
+        "passed": true,
+        "actual": 0,
+        "target": "<=0",
+        "detail": "Public watchlist rows should not carry tranche-side evidence blockers."
+      },
+      {
+        "name": "dashboard_not_demo",
+        "passed": true,
+        "actual": true,
+        "target": true,
+        "detail": "Committed dashboard snapshot is present and non-demo."
+      },
+      {
+        "name": "dashboard_current",
+        "passed": true,
+        "actual": 0,
+        "target": "<=14 days",
+        "detail": "Dashboard as_of date is recent enough for public release."
+      },
+      {
+        "name": "dashboard_evidence_fields",
+        "passed": true,
+        "actual": true,
+        "target": true,
+        "detail": "Dashboard payload exposes evidence-facing fields for site rendering."
+      },
+      {
+        "name": "dashboard_public_watchlist_only",
+        "passed": true,
+        "actual": true,
+        "target": true,
+        "detail": "Public dashboard watchlist excludes internal review candidates."
+      },
+      {
+        "name": "dashboard_watchlist_diagnostics",
+        "passed": true,
+        "actual": true,
+        "target": true,
+        "detail": "Dashboard payload exposes candidate diagnostics and limitations for the public watchlist split."
+      },
+      {
+        "name": "manual_evidence_metadata",
+        "passed": true,
+        "actual": 0,
+        "target": 0,
+        "detail": "Manual evidence tables include source_url and notes on every row."
+      },
+      {
+        "name": "non_placeholder_user_agent",
+        "passed": true,
+        "actual": true,
+        "target": "real contact string",
+        "detail": "Live fetches require a real operator contact string."
+      },
+      {
+        "name": "public_limitations_present",
+        "passed": true,
+        "actual": 8,
+        "target": ">=1",
+        "detail": "Remaining unresolved families are called out in public limitations text."
+      }
+    ],
+    "failed_checks": []
+  },
+  "top_review_candidates": [
+    {
+      "tranche_name": "Artex Axcell Re (Bermuda) Ltd ILS Note Program II at Risk PI0059 Kettering Notes due Mar 31, 2026",
+      "issuer_name": "Artex Axcell Re (Bermuda) Ltd",
+      "family_name": "Artex Axcell Re (Bermuda) Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940980"
+    },
+    {
+      "tranche_name": "Eclipse Re Ltd Series 2025-1A Notes - SAC EC0071 - due March 31, 2026",
+      "issuer_name": "Eclipse Re Ltd",
+      "family_name": "Eclipse Re Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940956"
+    },
+    {
+      "tranche_name": "Kaith Re Ltd Li Re 2025-1 Bond due July 15, 2026",
+      "issuer_name": "Kaith Re Ltd Li Re 2025-1",
+      "family_name": "Kaith Re Ltd Li Re 2025-1",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940954"
+    },
+    {
+      "tranche_name": "Kaith Re Ltd Li Re 2025-2 Bond due October 15, 2026",
+      "issuer_name": "Kaith Re Ltd Li Re 2025-2",
+      "family_name": "Kaith Re Ltd Li Re 2025-2",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940990"
+    },
+    {
+      "tranche_name": "Mangrove Risk Solutions Bermuda Ltd. Series 2025-A Disc Zero Coupon Par Notes due May 15, 2026",
+      "issuer_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "family_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940951"
+    },
+    {
+      "tranche_name": "Mangrove Risk Solutions Bermuda Ltd. Series 2025-C1 Disc Zero Coupon Par Notes due June12, 2026",
+      "issuer_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "family_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940966"
+    },
+    {
+      "tranche_name": "Mangrove Risk Solutions Bermuda Ltd. Series 2025-D2 Disc Zero Coupon Par Notes due Apr 10, 2026",
+      "issuer_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "family_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940938"
+    },
+    {
+      "tranche_name": "Mangrove Risk Solutions Bermuda Ltd. Series 2025-G Class E Notes due June 12, 2026",
+      "issuer_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "family_name": "Mangrove Risk Solutions Bermuda Ltd",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940974"
+    },
+    {
+      "tranche_name": "Nascent Re Ltd SAC “OFS Re” - Series 2026-001 Preferred Shares due 31 Dec 2026",
+      "issuer_name": "Nascent Re Ltd SAC “OFS Re” - EUR",
+      "family_name": "Nascent Re Ltd SAC “OFS Re” - EUR",
+      "issues": [
+        "missing_sponsor",
+        "missing_region",
+        "broad_peril"
+      ],
+      "priority": 9,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941109"
+    },
+    {
+      "tranche_name": "Artex Axcell Re (Bermuda) Limited ILS Note Program II at Risk Dodeka 2024-1 Notes due Apr 6, 2026",
+      "issuer_name": "Artex Axcell Re (Bermuda) Limited",
+      "family_name": "Artex Axcell Re (Bermuda) Limited",
+      "issues": [
+        "missing_sponsor",
+        "broad_peril"
+      ],
+      "priority": 6,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940703"
+    },
+    {
+      "tranche_name": "Artex Axcell Re (Bermuda) Limited ILS Note Program II at Risk FE0002 Notes due April 28, 2026",
+      "issuer_name": "Artex Axcell Re (Bermuda) Limited",
+      "family_name": "Artex Axcell Re (Bermuda) Limited",
+      "issues": [
+        "missing_sponsor",
+        "broad_peril"
+      ],
+      "priority": 6,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940964"
+    },
+    {
+      "tranche_name": "Artex Axcell Re (Bermuda) Limited ILS Note Program II at Risk FE0003 Notes due July 23, 2027",
+      "issuer_name": "Artex Axcell Re (Bermuda) Limited",
+      "family_name": "Artex Axcell Re (Bermuda) Limited",
+      "issues": [
+        "missing_sponsor",
+        "broad_peril"
+      ],
+      "priority": 6,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940971"
+    },
+    {
+      "tranche_name": "Seaside Re 2025-1 Bond Due 15 April 2026",
+      "issuer_name": "Seaside Re 2025-1",
+      "family_name": "Seaside Re 2025-1",
+      "issues": [
+        "missing_sponsor",
+        "broad_peril"
+      ],
+      "priority": 6,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940809"
+    },
+    {
+      "tranche_name": "Seaside Re 2025-11 Bond Due 15 April 2026",
+      "issuer_name": "Seaside Re 2025-11",
+      "family_name": "Seaside Re 2025-11",
+      "issues": [
+        "missing_sponsor",
+        "broad_peril"
+      ],
+      "priority": 6,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940810"
+    },
+    {
+      "tranche_name": "Eclipse Re Ltd Series 2025-2A Notes - SAC EC0070 - due March 31, 2026",
+      "issuer_name": "Eclipse Re Ltd",
+      "family_name": "Eclipse Re Ltd",
+      "issues": [
+        "missing_sponsor"
+      ],
+      "priority": 4,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940955"
+    },
+    {
+      "tranche_name": "Eclipse Re Ltd Series 2025-3A Notes - SAC EC0069 - due May 31, 2026",
+      "issuer_name": "Eclipse Re Ltd",
+      "family_name": "Eclipse Re Ltd",
+      "issues": [
+        "missing_sponsor"
+      ],
+      "priority": 4,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940976"
+    },
+    {
+      "tranche_name": "Eclipse Re Ltd Series 2025-4A Notes - SAC EC0073 - due May 31, 2026",
+      "issuer_name": "Eclipse Re Ltd",
+      "family_name": "Eclipse Re Ltd",
+      "issues": [
+        "missing_sponsor"
+      ],
+      "priority": 4,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940978"
+    },
+    {
+      "tranche_name": "Eclipse Re Ltd Series 2025-5A Notes - SAC EC0074 - due May 31, 2026",
+      "issuer_name": "Eclipse Re Ltd",
+      "family_name": "Eclipse Re Ltd",
+      "issues": [
+        "missing_sponsor"
+      ],
+      "priority": 4,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940975"
+    },
+    {
+      "tranche_name": "Eclipse Re Ltd Series 2025-6A Notes - SAC EC0075 - due May 31, 2026",
+      "issuer_name": "Eclipse Re Ltd",
+      "family_name": "Eclipse Re Ltd",
+      "issues": [
+        "missing_sponsor"
+      ],
+      "priority": 4,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940979"
+    },
+    {
+      "tranche_name": "Eclipse Re Ltd Series 2025-7A Notes - SAC EC0076 - due May 31, 2026",
+      "issuer_name": "Eclipse Re Ltd",
+      "family_name": "Eclipse Re Ltd",
+      "issues": [
+        "missing_sponsor"
+      ],
+      "priority": 4,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940977"
+    },
+    {
+      "tranche_name": "Eclipse Re Ltd Series 2025-8A Notes - SAC EC0077 - due September 30, 2026",
+      "issuer_name": "Eclipse Re Ltd",
+      "family_name": "Eclipse Re Ltd",
+      "issues": [
+        "missing_sponsor"
+      ],
+      "priority": 4,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941005"
+    },
+    {
+      "tranche_name": "Eclipse Re Ltd Series 2026-1A Notes - SAC EC0078 - due December 31, 2027",
+      "issuer_name": "Eclipse Re Ltd",
+      "family_name": "Eclipse Re Ltd",
+      "issues": [
+        "missing_sponsor"
+      ],
+      "priority": 4,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099941120"
+    },
+    {
+      "tranche_name": "Seaside Re 2025-12 Bond Due 15 April 2026",
+      "issuer_name": "Seaside Re 2025-12",
+      "family_name": "Seaside Re 2025-12",
+      "issues": [
+        "missing_sponsor"
+      ],
+      "priority": 4,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940811"
+    },
+    {
+      "tranche_name": "Seaside Re 2025-13 Bond Due 15 April 2026",
+      "issuer_name": "Seaside Re 2025-13",
+      "family_name": "Seaside Re 2025-13",
+      "issues": [
+        "missing_sponsor"
+      ],
+      "priority": 4,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940812"
+    },
+    {
+      "tranche_name": "Seaside Re 2025-14 Bond Due 15 April 2026",
+      "issuer_name": "Seaside Re 2025-14",
+      "family_name": "Seaside Re 2025-14",
+      "issues": [
+        "missing_sponsor"
+      ],
+      "priority": 4,
+      "source_url": "https://www.bsx.com/company_details.php?CompanyID=1099940813"
+    }
+  ]
+}

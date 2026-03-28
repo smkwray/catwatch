@@ -58,7 +58,7 @@ Out of scope for v0:
 - Write normalized records to `data/processed/`.
 - Prefer append-only manifests and deterministic rebuilds.
 - Record `source_url`, `source_name`, `retrieved_at`, and `extraction_method`.
-- Add `confidence` and `review_status` when inference is involved.
+- Add field-level attribution state and `review_status` when inference is involved.
 - Any geographic inference should be represented as coarse, text-backed coverage unless actual coverage geometry is public and trustworthy.
 
 ## Coding conventions

@@ -39,6 +39,12 @@ _US_REGION_CODES = {
     "south_carolina",
     "texas",
 }
+_PROMOTION_HINTS: list[tuple[set[str], str]] = [
+    ({"missing_sponsor"}, "add_sponsor_evidence"),
+    ({"weak_region_evidence", "region_unknown"}, "strengthen_region_evidence"),
+    ({"broad_peril", "broad_peril_match"}, "replace_broad_peril_classification"),
+    ({"missing_maturity"}, "confirm_maturity_date"),
+]
 
 
 def _tranche_issue_flags(tranche: dict[str, Any]) -> list[str]:
@@ -84,6 +90,15 @@ def _confidence_band(score: float, match_scope: str, candidate_reason_codes: lis
     if any(reason in {"broad_peril", "broad_peril_match", "weak_region_evidence", "region_unknown"} for reason in candidate_reason_codes):
         return "low"
     return "medium"
+
+
+def _promotion_hint_codes(public_blockers: list[str], candidate_reason_codes: list[str]) -> list[str]:
+    evidence_codes = set(public_blockers) | set(candidate_reason_codes)
+    hints: list[str] = []
+    for trigger_codes, hint_code in _PROMOTION_HINTS:
+        if evidence_codes & trigger_codes:
+            hints.append(hint_code)
+    return hints
 
 
 def _peril_match(tranche: dict[str, Any], event: dict[str, Any]) -> bool:
@@ -193,6 +208,9 @@ def build_match(
         "event_name": event.get("event_name"),
         "event_peril_code": event.get("peril_code"),
         "event_region_codes": event.get("region_codes", []),
+        "event_latitude": event.get("event_latitude"),
+        "event_longitude": event.get("event_longitude"),
+        "event_bbox": event.get("event_bbox"),
         "event_source_name": event.get("source_name"),
         "event_source_url": event.get("source_url"),
         "event_source_record_id": event.get("source_record_id"),
@@ -207,6 +225,7 @@ def build_match(
         "match_scope": match_scope,
         "public_blockers": public_blockers,
         "candidate_reason_codes": candidate_reason_codes,
+        "promotion_hint_codes": _promotion_hint_codes(public_blockers, candidate_reason_codes),
         "confidence_band": _confidence_band(score, match_scope, candidate_reason_codes),
         "tranche_issue_flags": tranche_issue_flags,
         "generated_at": generated_at or utcnow_iso(),

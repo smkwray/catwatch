@@ -126,6 +126,7 @@ _ISSUER_REGION_HINTS: dict[str, list[str]] = {
 
 _LIST_FIELDS = {"peril_codes", "region_codes"}
 _OVERRIDE_FIELDS = {
+    "issue_amount",
     "peril_codes",
     "region_codes",
     "maturity_date",
@@ -139,9 +140,11 @@ _OVERRIDE_FIELDS = {
 }
 
 _FIELD_PROVENANCE_KEYS = {
+    "issue_amount": ("issue_amount_source_type", "issue_amount_source_url", "issue_amount_source_note"),
     "peril_codes": ("peril_source_type", "peril_source_url", "peril_source_note"),
     "region_codes": ("region_source_type", "region_source_url", "region_source_note"),
     "maturity_date": ("maturity_source_type", "maturity_source_url", "maturity_source_note"),
+    "trigger_type": ("trigger_source_type", "trigger_source_url", "trigger_source_note"),
 }
 
 _BMA_AUTO_ACCEPT_SCORE = 0.88
@@ -258,6 +261,65 @@ def _load_manual_overrides(path: Path) -> dict[tuple[str, str], dict[str, str | 
         for row in rows
         if row.get("tranche_name") and row.get("field_name")
     }
+
+
+def _load_trigger_overrides(path: Path) -> dict[str, dict[str, str | None]]:
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        rows = list(reader)
+    return {
+        row["tranche_name"].strip(): {
+            "trigger_type": (row.get("trigger_type") or "").strip(),
+            "source_url": (row.get("source_url") or "").strip() or None,
+            "notes": (row.get("notes") or "").strip() or None,
+        }
+        for row in rows
+        if row.get("tranche_name")
+    }
+
+
+def _normalize_trigger_type(value: str | None) -> str | None:
+    text = (value or "").strip().lower()
+    if not text:
+        return None
+    if "parametric" in text:
+        return "parametric"
+    if "industry" in text and "loss" in text:
+        return "industry_loss_index"
+    if "index" in text or "indexed" in text:
+        return "industry_loss_index"
+    if "indemnity" in text:
+        return "indemnity"
+    return None
+
+
+def _default_trigger_with_method(title: str, raw_trigger_type: str | None) -> tuple[str | None, str]:
+    normalized = _normalize_trigger_type(raw_trigger_type)
+    if normalized:
+        return normalized, "bsx_detail"
+    if "parametric" in title.lower():
+        return "parametric", "title_keyword"
+    return None, "missing"
+
+
+def _extract_title_issue_amount(title: str) -> str | None:
+    match = re.search(r"\$([0-9][0-9,]*)", title)
+    if not match:
+        return None
+    digits = match.group(1).replace(",", "")
+    return digits if digits.isdigit() else None
+
+
+def _default_issue_amount_with_method(title: str, raw_issue_amount: str | None) -> tuple[str | None, str]:
+    text = (raw_issue_amount or "").strip().replace(",", "")
+    if text:
+        return text, "bsx_detail"
+    embedded = _extract_title_issue_amount(title)
+    if embedded:
+        return embedded, "title_embedded_amount"
+    return None, "missing"
 
 
 def _load_sponsor_alias_rows(paths: list[Path]) -> list[dict]:
@@ -601,6 +663,7 @@ def build_registry(settings: Settings) -> str:
     bma_review_rows = read_jsonl(settings.processed_dir / "bma" / "entity_review_candidates.jsonl")
     sec_spv_rows = read_jsonl(settings.processed_dir / "sec" / "sponsor_spv_links.jsonl")
     overrides = _load_manual_overrides(settings.manual_dir / "tranche_overrides.csv")
+    trigger_overrides = _load_trigger_overrides(settings.manual_dir / "trigger_overrides.csv")
     sponsor_alias_rows = _load_sponsor_alias_rows(
         [settings.manual_dir / "sponsor_aliases.csv", Path("seeds/sponsor_aliases_template.csv")]
     )
@@ -649,6 +712,11 @@ def build_registry(settings: Settings) -> str:
         listed_date = row.get("listed_date")
         maturity_date = row.get("maturity_date")
         maturity_source_type = row.get("maturity_extraction_method") or ("bsx_detail" if maturity_date else "missing")
+        trigger_type, trigger_source_type = _default_trigger_with_method(title=title, raw_trigger_type=row.get("trigger_type"))
+        issue_amount, issue_amount_source_type = _default_issue_amount_with_method(
+            title=title,
+            raw_issue_amount=row.get("issue_amount"),
+        )
         record_type = _infer_record_type(title=title, maturity_date=maturity_date)
 
         tranche = {
@@ -685,11 +753,17 @@ def build_registry(settings: Settings) -> str:
             "maturity_source_type": maturity_source_type,
             "maturity_source_url": row.get("source_url") if maturity_date else None,
             "maturity_source_note": None,
-            "issue_amount": row.get("issue_amount"),
+            "issue_amount": issue_amount,
+            "issue_amount_source_type": issue_amount_source_type if issue_amount else "missing",
+            "issue_amount_source_url": row.get("source_url") if issue_amount else None,
+            "issue_amount_source_note": None,
             "currency": row.get("currency"),
             "isin": row.get("isin"),
             "cusip": row.get("cusip"),
-            "trigger_type": row.get("trigger_type"),
+            "trigger_type": trigger_type,
+            "trigger_source_type": trigger_source_type if trigger_type else "missing",
+            "trigger_source_url": row.get("source_url") if trigger_type else None,
+            "trigger_source_note": None,
             "peril_codes": peril_codes,
             "peril_inference_method": peril_inference_method,
             "peril_source_type": peril_inference_method if peril_codes else "missing",
@@ -709,6 +783,7 @@ def build_registry(settings: Settings) -> str:
             ),
             "attribution_status": {
                 "sponsor": "sourced" if sponsor_name else "missing",
+                "trigger": trigger_source_type if trigger_type else "missing",
                 "peril": peril_inference_method if peril_codes else "missing",
                 "region": region_inference_method if region_codes else "missing",
                 "maturity": maturity_source_type if maturity_date else "missing",
@@ -807,12 +882,31 @@ def build_registry(settings: Settings) -> str:
                         source_url=override.get("source_url"),
                         note=override.get("notes"),
                     )
+                if field == "issue_amount":
+                    _apply_field_provenance(
+                        tranche,
+                        field,
+                        source_type="manual_override",
+                        source_url=override.get("source_url"),
+                        note=override.get("notes"),
+                    )
                 if field == "sponsor_name":
                     tranche["sponsor_source"] = "manual_override"
                     tranche["sponsor_source_detail"] = "tranche_overrides.csv"
                     tranche["sponsor_source_url"] = override.get("source_url")
                     tranche["sponsor_source_note"] = override.get("notes")
                     tranche["sponsor_attribution_state"] = "manual_override"
+
+        trigger_override = trigger_overrides.get(title)
+        if trigger_override is not None:
+            tranche["trigger_type"] = _normalize_trigger_type(str(trigger_override.get("trigger_type") or ""))
+            _apply_field_provenance(
+                tranche,
+                "trigger_type",
+                source_type="manual_override",
+                source_url=trigger_override.get("source_url"),
+                note=trigger_override.get("notes"),
+            )
 
         if tranche.get("maturity_date") and (
             not tranche.get("risk_end_date") or tranche.get("risk_end_date") == original_maturity_date
@@ -822,6 +916,7 @@ def build_registry(settings: Settings) -> str:
         canonical_sponsor = tranche.get("sponsor_name") or tranche.get("sec_sponsor_name")
         tranche["attribution_status"] = {
             "sponsor": tranche.get("sponsor_attribution_state") if canonical_sponsor else "missing",
+            "trigger": tranche.get("trigger_source_type") if tranche.get("trigger_type") else "missing",
             "peril": tranche.get("peril_source_type") or "missing",
             "region": tranche.get("region_source_type") or "missing",
             "maturity": tranche.get("maturity_source_type") or "missing",

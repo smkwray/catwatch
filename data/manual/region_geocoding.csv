@@ -1,0 +1,13 @@
+region_code,display_name,iso_alpha2,latitude,longitude,map_zoom_level,source_url,notes
+us,United States,US,39.8283,-98.5795,4,https://www.geonames.org/6252001/united-states.html,"Representative centroid for coarse U.S. map placement only."
+california,"California, US",US,36.7783,-119.4179,5,https://www.geonames.org/5332921/california.html,"Representative centroid for coarse California map placement only."
+florida,"Florida, US",US,27.6648,-81.5158,5,https://www.geonames.org/4155751/florida.html,"Representative centroid for coarse Florida map placement only."
+europe,Europe,EU,54.526,15.2551,4,https://www.geonames.org/6255148/europe.html,"Representative centroid for coarse Europe map placement only."
+japan,Japan,JP,36.2048,138.2529,5,https://www.geonames.org/1861060/japan.html,"Representative centroid for coarse Japan map placement only."
+north_carolina,"North Carolina, US",US,35.7596,-79.0193,6,https://www.geonames.org/4482348/north-carolina.html,"Representative centroid for coarse North Carolina map placement only."
+texas,"Texas, US",US,31.9686,-99.9018,5,https://www.geonames.org/4736286/texas.html,"Representative centroid for coarse Texas map placement only."
+louisiana,"Louisiana, US",US,30.9843,-91.9623,6,https://www.geonames.org/4331987/louisiana.html,"Representative centroid for coarse Louisiana map placement only."
+global,Global,,0.0,0.0,2,https://www.geonames.org/6295630/earth.html,"Neutral centroid for explicitly global tranche exposure."
+chile,Chile,CL,-35.6751,-71.543,4,https://www.geonames.org/3895114/chile.html,"Representative centroid for coarse Chile map placement only."
+georgia,"Georgia, US",US,32.1656,-82.9001,6,https://www.geonames.org/4197000/georgia.html,"Representative centroid for coarse Georgia map placement only."
+south_carolina,"South Carolina, US",US,33.8361,-81.1637,6,https://www.geonames.org/4597040/south-carolina.html,"Representative centroid for coarse South Carolina map placement only."

@@ -1,6 +1,6 @@
 # OpenCatWatch data audit
 
-Generated: 2026-03-27T00:00:00Z
+Generated: 2026-03-28T00:00:00Z
 
 ## Release gate
 
@@ -16,6 +16,7 @@ Generated: 2026-03-27T00:00:00Z
 - dashboard_evidence_fields: pass (actual=True, target=True)
 - dashboard_public_watchlist_only: pass (actual=True, target=True)
 - dashboard_watchlist_diagnostics: pass (actual=True, target=True)
+- dashboard_enrichment_fields: pass (actual=True, target=True)
 - manual_evidence_metadata: pass (actual=0, target=0)
 - non_placeholder_user_agent: pass (actual=True, target=real contact string)
 - public_limitations_present: pass (actual=8, target=>=1)
@@ -34,8 +35,11 @@ Generated: 2026-03-27T00:00:00Z
 
 - Sponsor coverage: 94.5%
 - Region coverage: 97.6%
+- Amount coverage: 91.1%
+- Trigger coverage: 7.8%
 - Identified sponsors: 120
 - Inferred regions: 555
+- Geocoded region rows: 617
 
 ## Issues
 
@@ -46,6 +50,9 @@ Generated: 2026-03-27T00:00:00Z
 - Candidate match ratio (%): 62.65
 - Outstanding rows without maturity: 6
 - Broad peril rows in registry: 17
+- Missing issue amount rows: 57
+- Missing trigger type rows: 590
+- Missing region geocoding rows: 0
 
 ## Dashboard consistency
 
@@ -64,7 +71,42 @@ Generated: 2026-03-27T00:00:00Z
 ## Manual evidence
 
 - sponsor_aliases: 136 rows, 0 issues
-- tranche_overrides: 40 rows, 0 issues
+- tranche_overrides: 84 rows, 0 issues
+- region_geocoding: 12 rows, 0 issues
+- trigger_overrides: 49 rows, 0 issues
+
+## Gap analysis
+
+- Missing amount: Home Re 2026-1 Ltd Class B-1 RegS Series 2026-1 Mortgage Insurance-Linked Notes due Jan 25, 2036 (USD)
+- Missing amount: Home Re 2026-1 Ltd Class M-2 RegS Series 2026-1 Mortgage Insurance-Linked Notes due Jan 25, 2036 (USD)
+- Missing amount: Home Re 2026-1 Ltd Class M1-A RegS Series 2026-1 Mortgage Insurance-Linked Notes due Jan 25, 2036 (USD)
+- Missing amount: Home Re 2026-1 Ltd Class M1-B RegS Series 2026-1 Mortgage Insurance-Linked Notes due Jan 25, 2036 (USD)
+- Missing amount: Home Re 2026-1 Ltd Class M1-C RegS Series 2026-1 Mortgage Insurance-Linked Notes due Jan 25, 2036 (USD)
+- Missing amount: Lion Re DAC - Series 2025-1 Class A Principal At-Risk Variable Rate Notes due June 15, 2029 (EUR)
+- Missing amount: Lion Re DAC - Series 2025-1 Class B Principal At-Risk Variable Rate Notes due June 15, 2029 (EUR)
+- Missing amount: Yosemite Re Ltd Series 2025-1 Class A PAR Variable Rate Notes due June 7, 2028 (USD)
+- Missing amount: London Bridge 2 PCC Limited - Vision 2039 Series 2025-1 Class A PAR VR Notes due Apr 6, 2028 (GBP)
+- Missing amount: Voussoir Re Ltd Series 2025-3 Non-Voting Redeemable Preferred Shares (USD)
+- Missing sponsor: Eclipse Re Ltd Series 2026-1A Notes - SAC EC0078 - due December 31, 2027
+- Missing sponsor: Nascent Re Ltd SAC “OFS Re” - Series 2026-001 Preferred Shares due 31 Dec 2026
+- Missing sponsor: Seaside Re 2026-11 Bond Due 15 January 2027
+- Missing sponsor: Seaside Re 2026-12 Bond Due 15 January 2027
+- Missing sponsor: Seaside Re 2026-13 Bond Due 15 January 2027
+- Missing sponsor: Seaside Re 2026-14 Bond Due 15 January 2027
+- Missing sponsor: Seaside Re 2026-15 Bond Due 15 January 2027
+- Missing sponsor: Seaside Re 2026-31 Bond Due 15 January 2027
+- Missing sponsor: Seaside Re 2026-41 Bond Due 15 January 2027
+- Missing sponsor: Eclipse Re Ltd Series 2025-8A Notes - SAC EC0077 - due September 30, 2026
+- Missing sponsor family: Eclipse Re Ltd (9)
+- Missing sponsor family: Mangrove Risk Solutions Bermuda Ltd (4)
+- Missing sponsor family: Artex Axcell Re (Bermuda) Limited (3)
+- Missing sponsor family: Nascent Re Ltd SAC “OFS Re” - EUR (1)
+- Missing sponsor family: Seaside Re 2026-11 (1)
+- Missing sponsor family: Seaside Re 2026-12 (1)
+- Missing sponsor family: Seaside Re 2026-13 (1)
+- Missing sponsor family: Seaside Re 2026-14 (1)
+- Missing sponsor family: Seaside Re 2026-15 (1)
+- Missing sponsor family: Seaside Re 2026-31 (1)
 
 ## Public limitations
 

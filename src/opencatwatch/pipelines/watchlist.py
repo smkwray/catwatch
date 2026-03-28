@@ -200,6 +200,72 @@ _STORM_EVENT_ABBR_TO_REGION: dict[str, list[str]] = {
 }
 
 
+def _empty_event_geo_fields() -> dict[str, object]:
+    return {
+        "event_latitude": None,
+        "event_longitude": None,
+        "event_bbox": None,
+    }
+
+
+def _extract_geometry_points(geometry: dict | None) -> list[tuple[float, float]]:
+    if not geometry:
+        return []
+    coordinates = geometry.get("coordinates")
+    if coordinates is None:
+        return []
+
+    points: list[tuple[float, float]] = []
+
+    def _walk(node: object) -> None:
+        if not isinstance(node, list):
+            return
+        if len(node) >= 2 and all(isinstance(value, (int, float)) for value in node[:2]):
+            points.append((float(node[1]), float(node[0])))
+            return
+        for value in node:
+            _walk(value)
+
+    _walk(coordinates)
+    return points
+
+
+def _event_geo_from_geometry(geometry: dict | None) -> dict[str, object]:
+    points = _extract_geometry_points(geometry)
+    if not points:
+        return _empty_event_geo_fields()
+
+    latitudes = [point[0] for point in points]
+    longitudes = [point[1] for point in points]
+    min_latitude = min(latitudes)
+    max_latitude = max(latitudes)
+    min_longitude = min(longitudes)
+    max_longitude = max(longitudes)
+    return {
+        "event_latitude": round((min_latitude + max_latitude) / 2, 6),
+        "event_longitude": round((min_longitude + max_longitude) / 2, 6),
+        "event_bbox": {
+            "min_latitude": round(min_latitude, 6),
+            "min_longitude": round(min_longitude, 6),
+            "max_latitude": round(max_latitude, 6),
+            "max_longitude": round(max_longitude, 6),
+        },
+    }
+
+
+def _merge_event_bbox(existing_bbox: dict | None, new_bbox: dict | None) -> dict | None:
+    if not existing_bbox:
+        return new_bbox
+    if not new_bbox:
+        return existing_bbox
+    return {
+        "min_latitude": min(float(existing_bbox["min_latitude"]), float(new_bbox["min_latitude"])),
+        "min_longitude": min(float(existing_bbox["min_longitude"]), float(new_bbox["min_longitude"])),
+        "max_latitude": max(float(existing_bbox["max_latitude"]), float(new_bbox["max_latitude"])),
+        "max_longitude": max(float(existing_bbox["max_longitude"]), float(new_bbox["max_longitude"])),
+    }
+
+
 def _canonicalize_ibtracs(row: dict) -> dict | None:
     sid = (row.get("SID") or "").strip()
     if not sid:
@@ -229,6 +295,7 @@ def _canonicalize_ibtracs(row: dict) -> dict | None:
         "region_codes": regions,
         "source_url": _IBTRACS_DATASET_URL,
         "source_record_id": sid,
+        **_empty_event_geo_fields(),
     }
 
 
@@ -347,6 +414,7 @@ def _canonicalize_fema(row: dict) -> dict | None:
         "region_codes": regions,
         "source_url": _OPENFEMA_DATASET_URL,
         "source_record_id": str(row.get("disasterNumber") or ""),
+        **_empty_event_geo_fields(),
     }
 
 
@@ -447,6 +515,7 @@ def _load_storm_events(settings: Settings) -> list[dict]:
                         "region_codes": regions,
                         "source_url": _STORMEVENTS_DATASET_URL,
                         "source_record_id": row.get("EVENT_ID") or episode_id or event_key,
+                        **_empty_event_geo_fields(),
                     })
         except Exception:
             continue
@@ -476,6 +545,7 @@ def _canonicalize_nws(alert: dict) -> dict | None:
     regions = extract_region_codes(area_desc)
     if not regions:
         regions.append("us")
+    geo = _event_geo_from_geometry(alert.get("geometry_json"))
     return {
         "event_id": alert.get("source_event_id"),
         "source_name": "nws",
@@ -486,6 +556,7 @@ def _canonicalize_nws(alert: dict) -> dict | None:
         "region_codes": regions,
         "source_url": alert.get("source_url"),
         "source_record_id": alert.get("source_event_id"),
+        **geo,
     }
 
 
@@ -501,6 +572,9 @@ def _canonicalize_usgs(row: dict) -> dict:
         "region_codes": region_codes,
         "source_url": row.get("source_url"),
         "source_record_id": row.get("source_event_id"),
+        "event_latitude": row.get("latitude"),
+        "event_longitude": row.get("longitude"),
+        "event_bbox": None,
     }
 
 
@@ -619,6 +693,11 @@ def _dedupe_events(events: list[dict]) -> list[dict]:
             existing["source_url"] = event.get("source_url")
         if not existing.get("source_record_id") and event.get("source_record_id"):
             existing["source_record_id"] = event.get("source_record_id")
+        if existing.get("event_latitude") is None and event.get("event_latitude") is not None:
+            existing["event_latitude"] = event.get("event_latitude")
+        if existing.get("event_longitude") is None and event.get("event_longitude") is not None:
+            existing["event_longitude"] = event.get("event_longitude")
+        existing["event_bbox"] = _merge_event_bbox(existing.get("event_bbox"), event.get("event_bbox"))
     return list(deduped.values())
 
 

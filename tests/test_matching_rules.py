@@ -135,6 +135,7 @@ def test_build_match_status():
     assert match["match_scope"] == "public"
     assert match["public_blockers"] == []
     assert match["candidate_reason_codes"] == []
+    assert match["promotion_hint_codes"] == []
     assert match["confidence_band"] == "high"
 
 
@@ -160,6 +161,11 @@ def test_build_match_marks_exact_overlap_as_candidate_when_tranche_has_public_bl
     assert match["match_scope"] == "candidate"
     assert set(match["public_blockers"]) == {"missing_sponsor", "missing_maturity", "weak_region_evidence"}
     assert set(match["candidate_reason_codes"]) == {"missing_sponsor", "missing_maturity", "weak_region_evidence"}
+    assert set(match["promotion_hint_codes"]) == {
+        "add_sponsor_evidence",
+        "confirm_maturity_date",
+        "strengthen_region_evidence",
+    }
     assert match["confidence_band"] == "low"
 
 
@@ -180,6 +186,9 @@ def test_build_match_preserves_generated_at_and_marks_region_unknown_candidate()
         "peril_code": "earthquake",
         "start_time": "2026-01-10T00:00:00+00:00",
         "region_codes": [],
+        "event_latitude": 34.05,
+        "event_longitude": -118.25,
+        "event_bbox": None,
     }
 
     match = build_match(tranche, event, generated_at="2026-01-15T00:00:00Z")
@@ -188,7 +197,11 @@ def test_build_match_preserves_generated_at_and_marks_region_unknown_candidate()
     assert match["match_scope"] == "candidate"
     assert "region_unknown" in match["reasons"]
     assert set(match["candidate_reason_codes"]) == {"region_unknown", "weak_region_evidence"}
+    assert match["promotion_hint_codes"] == ["strengthen_region_evidence"]
     assert match["generated_at"] == "2026-01-15T00:00:00Z"
+    assert match["event_latitude"] == 34.05
+    assert match["event_longitude"] == -118.25
+    assert match["event_bbox"] is None
 
 
 def test_other_property_cat_matches_major_perils():
@@ -254,6 +267,42 @@ def test_canonicalize_fema_hurricane():
     assert result["event_id"] == "fema-4000-FL"
     assert result["source_url"] is not None
     assert result["source_record_id"] == "4000"
+
+
+def test_canonicalize_nws_derives_event_geo_from_polygon():
+    result = _canonicalize_nws(
+        {
+            "source_event_id": "nws-1",
+            "event_name": "Red Flag Warning",
+            "headline": "Critical fire weather conditions",
+            "start_time": "2026-06-10",
+            "end_time": "2026-06-11",
+            "area_desc": "California",
+            "source_url": "https://example.com/nws-1",
+            "geometry_json": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [-120.0, 34.0],
+                        [-118.0, 34.0],
+                        [-118.0, 36.0],
+                        [-120.0, 36.0],
+                        [-120.0, 34.0],
+                    ]
+                ],
+            },
+        }
+    )
+
+    assert result is not None
+    assert result["event_latitude"] == 35.0
+    assert result["event_longitude"] == -119.0
+    assert result["event_bbox"] == {
+        "min_latitude": 34.0,
+        "min_longitude": -120.0,
+        "max_latitude": 36.0,
+        "max_longitude": -118.0,
+    }
 
 
 def test_canonicalize_fema_skips_unknown_type():
