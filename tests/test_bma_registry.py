@@ -855,6 +855,135 @@ def test_build_registry_manual_overrides_can_roll_back_false_precision_hints(tmp
     assert eclipse["region_source_type"] == "manual_override"
 
 
+def test_build_registry_manual_overrides_pin_ramble_stabilitas_and_seaside_rows(tmp_path: Path):
+    settings = _settings(tmp_path)
+    ramble_title = "Ramble Re Ltd Series 2024-1 Class A Principal At-Risk Variable Rate Notes due March 5, 2027"
+    stabilitas_title = "Stabilitas Re Ltd. Series 2023-1- Class A Principal At-Risk Variable Rate Notes due June 5, 2026"
+    seaside_title = "Seaside Re 2025-1 Bond Due 15 April 2026"
+    write_jsonl(
+        settings.processed_dir / "bsx" / "company_records.jsonl",
+        [
+            {
+                "title": ramble_title,
+                "issuer_name": "Ramble Re Ltd",
+                "listing_status": "Listed",
+                "source_url": "https://example.com/ramble",
+                "retrieved_at": "2026-03-27T00:00:00+00:00",
+                "extraction_method": "test",
+            },
+            {
+                "title": stabilitas_title,
+                "issuer_name": "Stabilitas Re Ltd.",
+                "listing_status": "Listed",
+                "source_url": "https://example.com/stabilitas",
+                "retrieved_at": "2026-03-27T00:00:00+00:00",
+                "extraction_method": "test",
+            },
+            {
+                "title": seaside_title,
+                "issuer_name": "Seaside Re",
+                "listing_status": "Listed",
+                "source_url": "https://example.com/seaside",
+                "retrieved_at": "2026-03-27T00:00:00+00:00",
+                "extraction_method": "test",
+            },
+        ],
+    )
+    settings.manual_dir.mkdir(parents=True, exist_ok=True)
+    with (settings.manual_dir / "tranche_overrides.csv").open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["tranche_name", "field_name", "override_value", "source_url", "notes"])
+        writer.writerows(
+            [
+                [
+                    ramble_title,
+                    "sponsor_name",
+                    "Arch Capital Group Ltd.",
+                    "https://example.com/ramble-source",
+                    "Exact tranche evidence for sponsor.",
+                ],
+                [
+                    ramble_title,
+                    "region_codes",
+                    '["us"]',
+                    "https://example.com/ramble-source",
+                    "Exact tranche evidence for region.",
+                ],
+                [
+                    ramble_title,
+                    "peril_codes",
+                    '["us_wind","earthquake"]',
+                    "https://example.com/ramble-source",
+                    "Exact tranche evidence for peril.",
+                ],
+                [
+                    stabilitas_title,
+                    "sponsor_name",
+                    "Conduit Re",
+                    "https://example.com/stabilitas-source",
+                    "Exact tranche evidence for sponsor.",
+                ],
+                [
+                    stabilitas_title,
+                    "region_codes",
+                    '["us"]',
+                    "https://example.com/stabilitas-source",
+                    "Exact tranche evidence for region.",
+                ],
+                [
+                    stabilitas_title,
+                    "peril_codes",
+                    '["us_wind","earthquake"]',
+                    "https://example.com/stabilitas-source",
+                    "Exact tranche evidence for peril.",
+                ],
+                [
+                    seaside_title,
+                    "region_codes",
+                    '["us"]',
+                    "https://example.com/seaside-source",
+                    "US property-cat geography should stay coarse.",
+                ],
+                [
+                    seaside_title,
+                    "peril_codes",
+                    '["other_property_cat"]',
+                    "https://example.com/seaside-source",
+                    "Unknown property-cat should not retain precise issuer hints.",
+                ],
+            ]
+        )
+
+    build_registry(settings)
+    rows = {
+        row["tranche_name"]: row
+        for row in read_jsonl(settings.processed_dir / "registry" / "tranches.jsonl")
+    }
+    ramble = rows[ramble_title]
+    stabilitas = rows[stabilitas_title]
+    seaside = rows[seaside_title]
+
+    assert ramble["sponsor_name"] == "Arch Capital Group Ltd."
+    assert ramble["sponsor_source"] == "manual_override"
+    assert ramble["region_codes"] == ["us"]
+    assert ramble["peril_codes"] == ["us_wind", "earthquake"]
+    assert ramble["region_source_type"] == "manual_override"
+    assert ramble["peril_source_type"] == "manual_override"
+
+    assert stabilitas["sponsor_name"] == "Conduit Re"
+    assert stabilitas["sponsor_source"] == "manual_override"
+    assert stabilitas["region_codes"] == ["us"]
+    assert stabilitas["peril_codes"] == ["us_wind", "earthquake"]
+    assert stabilitas["region_source_type"] == "manual_override"
+    assert stabilitas["peril_source_type"] == "manual_override"
+
+    assert seaside["sponsor_name"] is None
+    assert seaside["region_codes"] == ["us"]
+    assert seaside["peril_codes"] == ["other_property_cat"]
+    assert seaside["region_source_type"] == "manual_override"
+    assert seaside["peril_source_type"] == "manual_override"
+
+
 def test_build_registry_marks_program_titles_with_trailing_punctuation_as_programmes(tmp_path: Path):
     settings = _settings(tmp_path)
     write_jsonl(

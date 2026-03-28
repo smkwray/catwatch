@@ -34,6 +34,7 @@ class Settings:
     data_dir: Path
     workspace_root: Path | None = None
     as_of_date: date = field(default_factory=date.today)
+    as_of_date_is_explicit: bool = True
     http_retry_attempts: int = 3
     http_retry_backoff_seconds: float = 0.5
     http_retry_max_backoff_seconds: float = 8.0
@@ -89,6 +90,7 @@ def get_settings() -> Settings:
         data_dir=data_dir,
         workspace_root=workspace_root,
         as_of_date=as_of_date,
+        as_of_date_is_explicit=bool(as_of_date_value),
         http_retry_attempts=int(os.getenv("OPENCATWATCH_HTTP_RETRY_ATTEMPTS", "3")),
         http_retry_backoff_seconds=float(os.getenv("OPENCATWATCH_HTTP_RETRY_BACKOFF_SECONDS", "0.5")),
         http_retry_max_backoff_seconds=float(

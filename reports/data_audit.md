@@ -5,6 +5,7 @@ Generated: 2026-03-27T00:00:00Z
 ## Release gate
 
 - Passed: True
+- explicit_as_of_date: pass (actual=True, target=True)
 - sponsor_coverage: pass (actual=94.53, target=>=70.0)
 - region_coverage: pass (actual=97.63, target=>=95.0)
 - outstanding_missing_maturity: pass (actual=6, target=<=40)

@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 import polars as pl
@@ -162,6 +163,34 @@ def test_build_match_marks_exact_overlap_as_candidate_when_tranche_has_public_bl
     assert match["confidence_band"] == "low"
 
 
+def test_build_match_preserves_generated_at_and_marks_region_unknown_candidate():
+    tranche = {
+        "tranche_id": "t2",
+        "peril_codes": ["ca_earthquake"],
+        "risk_start_date": "2025-01-01",
+        "risk_end_date": "2027-01-01",
+        "region_codes": ["california"],
+        "region_source_type": "explicit_text",
+        "sponsor_name": "Named Sponsor",
+        "status": "outstanding",
+        "maturity_date": "2027-01-01",
+    }
+    event = {
+        "event_id": "e2",
+        "peril_code": "earthquake",
+        "start_time": "2026-01-10T00:00:00+00:00",
+        "region_codes": [],
+    }
+
+    match = build_match(tranche, event, generated_at="2026-01-15T00:00:00Z")
+
+    assert match is not None
+    assert match["match_scope"] == "candidate"
+    assert "region_unknown" in match["reasons"]
+    assert set(match["candidate_reason_codes"]) == {"region_unknown", "weak_region_evidence"}
+    assert match["generated_at"] == "2026-01-15T00:00:00Z"
+
+
 def test_other_property_cat_matches_major_perils():
     tranche = {
         "tranche_id": "t1",
@@ -302,6 +331,47 @@ def test_load_fema_events_handles_string_dates(tmp_path):
     assert len(events) == 1
     assert events[0]["event_id"] == "fema-1001-FL"
     assert events[0]["region_codes"] == ["florida"]
+
+
+def test_load_fema_events_respects_settings_as_of_date_cutoff(tmp_path):
+    settings = Settings(
+        user_agent="OpenCatWatch test",
+        timeout_seconds=5,
+        polite_delay_seconds=0.0,
+        sec_max_rps=1,
+        data_dir=tmp_path / "data",
+        as_of_date=date(2026, 1, 15),
+    )
+    df = pl.DataFrame(
+        [
+            {
+                "disasterNumber": 1001,
+                "state": "FL",
+                "incidentType": "Hurricane",
+                "declarationTitle": "CURRENT HURRICANE",
+                "declarationDate": "2024-01-02T00:00:00.000Z",
+                "incidentBeginDate": "2024-01-01T00:00:00.000Z",
+                "incidentEndDate": "2024-01-02T00:00:00.000Z",
+            },
+            {
+                "disasterNumber": 1002,
+                "state": "CA",
+                "incidentType": "Fire",
+                "declarationTitle": "OLD FIRE",
+                "declarationDate": "2023-12-31T00:00:00.000Z",
+                "incidentBeginDate": "2023-12-30T00:00:00.000Z",
+                "incidentEndDate": "2023-12-31T00:00:00.000Z",
+            },
+        ]
+    )
+    path = settings.raw_dir / "openfema" / "DisasterDeclarationsSummaries.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.write_parquet(path)
+
+    events = _load_fema_events(settings)
+
+    assert len(events) == 1
+    assert events[0]["event_id"] == "fema-1001-FL"
 
 
 def test_load_storm_events_normalizes_state_names_without_collapsing_to_us(tmp_path):

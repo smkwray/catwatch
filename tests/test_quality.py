@@ -61,6 +61,7 @@ def test_get_settings_prefers_explicit_data_dir_over_shared_root(monkeypatch: py
     settings = get_settings()
 
     assert settings.data_dir == Path("/tmp/explicit-catwatch-data")
+    assert settings.as_of_date_is_explicit is False
 
 
 def test_get_settings_ignores_shared_root_for_non_shared_workspace(monkeypatch: pytest.MonkeyPatch):
@@ -71,6 +72,18 @@ def test_get_settings_ignores_shared_root_for_non_shared_workspace(monkeypatch: 
     settings = get_settings()
 
     assert settings.data_dir == Path("data")
+    assert settings.as_of_date_is_explicit is False
+
+
+def test_get_settings_marks_explicit_as_of_date(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("OPENCATWATCH_DATA_DIR", raising=False)
+    monkeypatch.delenv("PROJ_SHARED_DATA_ROOT", raising=False)
+    monkeypatch.setenv("OPENCATWATCH_AS_OF_DATE", "2026-03-27")
+
+    settings = get_settings()
+
+    assert settings.as_of_date == date(2026, 3, 27)
+    assert settings.as_of_date_is_explicit is True
 
 
 def _write_manual_tables(
@@ -679,6 +692,20 @@ def test_run_release_check_invokes_validate_public_snapshot(monkeypatch: pytest.
 
     assert result == str(audit_path)
     assert called["snapshot"] == 1
+
+
+def test_run_release_check_requires_explicit_as_of_date(tmp_path: Path):
+    settings = Settings(
+        user_agent="OpenCatWatch/0.1 (contact contact@example.com)",
+        timeout_seconds=5,
+        polite_delay_seconds=0.0,
+        sec_max_rps=1,
+        data_dir=tmp_path / "release-check",
+        as_of_date_is_explicit=False,
+    )
+
+    with pytest.raises(RuntimeError, match="OPENCATWATCH_AS_OF_DATE"):
+        run_release_check(settings=settings)
 
 
 def test_validate_public_snapshot_rejects_dashboard_kpi_mismatch(tmp_path: Path):

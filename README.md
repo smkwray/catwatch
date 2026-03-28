@@ -71,7 +71,7 @@ Optional shared-data mode:
 
 - `PROJ_SHARED_DATA_ROOT=/path/to/shared/pool` stores this repo's data under `$PROJ_SHARED_DATA_ROOT/catwatch/data/`
 - `OPENCATWATCH_DATA_DIR` still overrides that path if you need a custom location
-- `OPENCATWATCH_AS_OF_DATE=YYYY-MM-DD` pins registry/site/audit build math to a reproducible as-of date
+- `OPENCATWATCH_AS_OF_DATE=YYYY-MM-DD` pins registry/site/audit build math to a reproducible as-of date and is required for `make release-check`
 
 ## Common Commands
 
@@ -104,6 +104,7 @@ make snapshot-check
 If local raw/processed source data already exists:
 
 ```bash
+export OPENCATWATCH_AS_OF_DATE=YYYY-MM-DD
 make registry
 make watchlist
 make site
@@ -111,7 +112,7 @@ make audit
 make review-queue
 ```
 
-If you need to refresh live data first, set a real user agent and run the relevant fetch commands. `fetch-bsx` currently falls back to reparsing saved raw BSX detail pages if the live listing routes are unavailable.
+If you need to refresh live data first, set a real user agent and an explicit `OPENCATWATCH_AS_OF_DATE`, then run the relevant fetch commands. `fetch-bsx` currently falls back to reparsing saved raw BSX detail pages if the live listing routes are unavailable.
 
 ## Publishing GitHub Pages
 

@@ -64,6 +64,13 @@
     "passed": true,
     "checks": [
       {
+        "name": "explicit_as_of_date",
+        "passed": true,
+        "actual": true,
+        "target": true,
+        "detail": "Release builds must pin OPENCATWATCH_AS_OF_DATE for reproducible snapshots."
+      },
+      {
         "name": "sponsor_coverage",
         "passed": true,
         "actual": 94.53,

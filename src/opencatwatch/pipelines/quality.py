@@ -411,6 +411,13 @@ def _build_release_checks(
     manual_issue_count = len(manual_tables.get("issues", []))
     checks = [
         {
+            "name": "explicit_as_of_date",
+            "passed": settings.as_of_date_is_explicit,
+            "actual": settings.as_of_date_is_explicit,
+            "target": True,
+            "detail": "Release builds must pin OPENCATWATCH_AS_OF_DATE for reproducible snapshots.",
+        },
+        {
             "name": "sponsor_coverage",
             "passed": float(coverage.get("sponsor_coverage_pct", 0.0)) >= RELEASE_THRESHOLDS["sponsor_coverage_pct"],
             "actual": coverage.get("sponsor_coverage_pct", 0.0),
@@ -777,6 +784,8 @@ def run_release_check(settings: Settings) -> str:
     public_doc_errors = validate_public_docs(project_root)
     if public_doc_errors:
         raise RuntimeError("public docs check failed: " + "; ".join(public_doc_errors))
+    if not settings.as_of_date_is_explicit:
+        raise RuntimeError("release check requires explicit OPENCATWATCH_AS_OF_DATE for reproducible rebuilds")
     env = dict(os.environ)
     src_path = str(project_root / "src")
     existing_pythonpath = env.get("PYTHONPATH")
