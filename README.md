@@ -132,7 +132,7 @@ The dashboard is built as an editorial, data-journalism-style narrative rather t
 - **Maturity runway** — three stat cards (12/24/36 month windows) plus a stacked maturity wall by quarter and peril
 - **Watchlist pressure** — public vs. candidate split, promotion blockers, and most blocked issuer families
 - **Evidence quality** — coverage scorecard with progress bars, gap counts, trigger coverage, and unresolved families
-- **Data tables** — sortable, searchable, paginated views of the public watchlist, review candidates, and maturity wall
+- **Data tables** — sortable, searchable, paginated views of top public watchlist, review candidate, and maturity wall rows
 
 ### Data sources
 
@@ -155,8 +155,8 @@ The theme system uses CSS custom properties on `[data-theme]` with a toggle butt
 
 1. On first load, checks `localStorage` for a saved preference.
 2. Falls back to the OS preference via `prefers-color-scheme`.
-3. Clicking the toggle switches the theme, persists to `localStorage`, and dispatches a `themechange` custom event on `<html>`.
-4. All ECharts instances listen for `themechange` and recompute their full option objects — tooltip backgrounds, axis labels, gridlines, legend text, and series colors are all re-applied, not just the page chrome.
+3. Clicking the toggle switches the theme and persists to `localStorage`. Only explicit toggles write to storage — first-visit users get their OS preference without a stale override.
+4. All ECharts instances watch for `data-theme` attribute changes via `MutationObserver` and recompute their full option objects — tooltip backgrounds, axis labels, gridlines, legend text, and series colors are all re-applied, not just the page chrome.
 
 ### Charting
 

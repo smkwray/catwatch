@@ -833,6 +833,7 @@ section:last-of-type { border-bottom: none; }
 }
 
 .badge-high { background: var(--color-positive-bg); color: var(--color-positive); }
+.badge-medium { background: var(--color-accent-bg, rgba(59,130,246,0.12)); color: var(--color-accent, #3b82f6); }
 .badge-low { background: var(--color-caution-bg); color: var(--color-caution); }
 
 /* ── Footer ── */

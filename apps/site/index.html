@@ -50,7 +50,6 @@
     </div>
     <div class="hero-links">
       <a href="https://github.com/smkwray/catwatch" target="_blank" rel="noreferrer">Repository</a>
-      <a href="https://github.com/smkwray" target="_blank" rel="noreferrer">Profile</a>
       <a href="#evidence">Audit</a>
       <a href="#tables">Data tables</a>
     </div>
@@ -135,7 +134,7 @@
       <div class="runway-grid" id="runway-grid"></div>
       <div class="chart-frame" style="margin-top:28px">
         <h3 class="chart-title">Maturity wall by quarter</h3>
-        <p class="chart-sub">Active tranche count by maturity quarter, colored by peril family.</p>
+        <p class="chart-sub">Peril-tranche tags by maturity quarter, colored by peril family. Multi-peril tranches appear in each relevant stack.</p>
         <div id="chart-maturity" class="chart-canvas" style="height:400px"></div>
       </div>
     </div>
@@ -195,8 +194,8 @@
         <ul id="notes-list" class="notes-list"></ul>
       </div>
       <div class="audit-links-bar">
-        <a href="https://github.com/smkwray/catwatch/blob/codex/backend-hardening/reports/data_audit.md" target="_blank" rel="noreferrer">Full audit report</a>
-        <a href="https://github.com/smkwray/catwatch/blob/codex/backend-hardening/reports/data_audit.json" target="_blank" rel="noreferrer">Audit JSON</a>
+        <a href="https://github.com/smkwray/catwatch/blob/main/reports/data_audit.md" target="_blank" rel="noreferrer">Full audit report</a>
+        <a href="https://github.com/smkwray/catwatch/blob/main/reports/data_audit.json" target="_blank" rel="noreferrer">Audit JSON</a>
       </div>
     </div>
   </section>
@@ -206,19 +205,19 @@
     <div class="container">
       <div class="section-header">
         <h2>Data tables</h2>
-        <p class="section-lead">Sortable, searchable views of the committed registry and watchlist data.</p>
+        <p class="section-lead">Sortable, searchable views of top registry and watchlist rows.</p>
       </div>
 
       <div class="tab-bar" role="tablist">
-        <button class="tab-btn active" role="tab" aria-selected="true" data-tab="watchlist">Public watchlist</button>
-        <button class="tab-btn" role="tab" aria-selected="false" data-tab="candidates">Review candidates</button>
-        <button class="tab-btn" role="tab" aria-selected="false" data-tab="maturity">Maturity wall</button>
+        <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-watchlist" id="tab-btn-watchlist" data-tab="watchlist">Public watchlist</button>
+        <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-candidates" id="tab-btn-candidates" data-tab="candidates">Review candidates</button>
+        <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-maturity" id="tab-btn-maturity" data-tab="maturity">Maturity wall</button>
       </div>
 
-      <div id="tab-watchlist" class="tab-content" role="tabpanel">
+      <div id="tab-watchlist" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-watchlist">
         <div class="table-header">
           <h3 id="watchlist-count"></h3>
-          <input type="text" id="watchlist-search" class="table-search" placeholder="Filter events&hellip;" />
+          <input type="text" id="watchlist-search" class="table-search" placeholder="Filter events&hellip;" aria-label="Filter public watchlist events" />
         </div>
         <div class="table-wrap"><table id="watchlist-table" class="data-table"></table></div>
         <div class="table-footer">
@@ -227,10 +226,10 @@
         </div>
       </div>
 
-      <div id="tab-candidates" class="tab-content" role="tabpanel" hidden>
+      <div id="tab-candidates" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-candidates" hidden>
         <div class="table-header">
           <h3 id="candidates-count"></h3>
-          <input type="text" id="candidates-search" class="table-search" placeholder="Filter candidates&hellip;" />
+          <input type="text" id="candidates-search" class="table-search" placeholder="Filter candidates&hellip;" aria-label="Filter review candidates" />
         </div>
         <div class="table-wrap"><table id="candidates-table" class="data-table"></table></div>
         <div class="table-footer">
@@ -239,10 +238,10 @@
         </div>
       </div>
 
-      <div id="tab-maturity" class="tab-content" role="tabpanel" hidden>
+      <div id="tab-maturity" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-maturity" hidden>
         <div class="table-header">
           <h3 id="maturity-count"></h3>
-          <input type="text" id="maturity-search" class="table-search" placeholder="Filter tranches&hellip;" />
+          <input type="text" id="maturity-search" class="table-search" placeholder="Filter tranches&hellip;" aria-label="Filter maturity wall tranches" />
         </div>
         <div class="table-wrap"><table id="maturity-table" class="data-table"></table></div>
         <div class="table-footer">

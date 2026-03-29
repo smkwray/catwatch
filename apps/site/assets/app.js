@@ -324,8 +324,7 @@ function renderGeographyChart(regionMap) {
   if (leadEl && regions.length) {
     var sorted = regions.slice().sort(function (a, b) { return b.capital - a.capital; });
     leadEl.textContent =
-      "Catastrophe risk transfer is overwhelmingly concentrated in the United States. " +
-      sorted[0].name + " accounts for " + fmtCapital(sorted[0].capital) +
+      "Most tracked capital is concentrated in " + sorted[0].name + ", which accounts for " + fmtCapital(sorted[0].capital) +
       " across " + sorted[0].trancheCount + " tranches" +
       (sorted.length > 1 ? ", with " + sorted[1].name + " at " + fmtCapital(sorted[1].capital) : "") + ".";
   }
@@ -522,7 +521,7 @@ function renderTimelineChart(sb) {
       "Public issuance visible through the BSX has grown from " +
       fmtCapital(yearMap[firstYr]) + " in " + firstYr + " to " +
       fmtCapital(yearMap[lastYr]) + " in " + lastYr +
-      ", reflecting both market growth and improving registry coverage. USD only.";
+      ". USD only.";
   }
 
   chart.setOption({
@@ -666,7 +665,7 @@ function renderMaturityWallChart(rows) {
     },
     yAxis: {
       type: "value",
-      name: "Tranches",
+      name: "Peril tags",
       nameTextStyle: { color: t.text, fontSize: 11 },
       axisLabel: baseAxisLabel(t),
       splitLine: baseSplitLine(t),
@@ -715,9 +714,9 @@ function renderBlockersChart(sb) {
   if (!chart) return;
   var t = getChartTheme();
 
-  var hints = ((sb.watchlist_pressure || {}).top_promotion_hints || []);
-  var names = hints.map(function (h) { return HINT_LABELS[h.hint_code] || h.hint_code.replace(/_/g, " "); }).reverse();
-  var values = hints.map(function (h) { return h.count; }).reverse();
+  var reasons = ((sb.candidate_blockers_summary || {}).top_candidate_reasons || []);
+  var names = reasons.map(function (r) { return REASON_LABELS[r.reason_code] || r.reason_code.replace(/_/g, " "); }).reverse();
+  var values = reasons.map(function (r) { return r.count; }).reverse();
 
   chart.setOption({
     tooltip: Object.assign({ trigger: "axis", axisPointer: { type: "shadow" } }, baseTooltip(t)),
@@ -841,6 +840,7 @@ function renderEvidenceQuality(sb, coverageGaps, triggerSummary) {
       { label: "Missing maturity", count: coverageGaps.missing_maturity || 0 },
       { label: "Missing trigger type", count: coverageGaps.missing_trigger_type || 0 },
       { label: "Missing sponsor", count: coverageGaps.missing_sponsor || 0 },
+      { label: "Missing region geocoding", count: coverageGaps.missing_region_geocoding || 0 },
     ];
     gapsEl.innerHTML = gaps.map(function (g) {
       var cls = g.count > 50 ? "gap-high" : g.count > 0 ? "gap-mid" : "gap-zero";
@@ -932,6 +932,7 @@ function initTableState(key, rows) {
 function watchlistColumns() {
   return [
     { key: "event_name", label: "Event", fmt: function (r) { return escHtml(r.event_name || ""); } },
+    { key: "start_time", label: "Date", cls: "nowrap mono", fmt: function (r) { return escHtml(fmtDate(r.start_time)); }, sortVal: function (r) { return r.start_time || ""; } },
     { key: "peril_code", label: "Peril", fmt: function (r) { return escHtml(PERIL_LABELS[r.peril_code] || r.peril_code || ""); } },
     { key: "region_codes", label: "Region", fmt: function (r) { return escHtml((r.region_codes || []).join(", ")); } },
     { key: "matched_tranche_count", label: "Matches", cls: "text-right mono", fmt: function (r) {
@@ -946,12 +947,13 @@ function watchlistColumns() {
 function candidatesColumns() {
   return [
     { key: "event_name", label: "Event", fmt: function (r) { return escHtml(r.event_name || ""); } },
+    { key: "start_time", label: "Date", cls: "nowrap mono", fmt: function (r) { return escHtml(fmtDate(r.start_time)); }, sortVal: function (r) { return r.start_time || ""; } },
     { key: "peril_code", label: "Peril", fmt: function (r) { return escHtml(PERIL_LABELS[r.peril_code] || r.peril_code || ""); } },
     { key: "region_codes", label: "Region", fmt: function (r) { return escHtml((r.region_codes || []).join(", ")); } },
     { key: "candidate_match_count", label: "Candidates", cls: "text-right mono", fmt: function (r) { return String(r.candidate_match_count || 0); } },
     { key: "confidence_band", label: "Confidence", fmt: function (r) {
       var b = r.confidence_band || "low";
-      var cls = b === "high" ? "badge-high" : "badge-low";
+      var cls = b === "high" ? "badge-high" : b === "medium" ? "badge-medium" : "badge-low";
       return '<span class="badge ' + cls + '">' + escHtml(b) + '</span>';
     }},
     { key: "source_url", label: "Source", fmt: function (r) { return sourceLink(r.source_url, r.source_name || "source"); } },
@@ -965,8 +967,12 @@ function maturityColumns() {
     { key: "peril_codes", label: "Perils", fmt: function (r) {
       return escHtml((r.peril_codes || []).map(function (p) { return PERIL_LABELS[p] || p; }).join(", "));
     }},
-    { key: "listed_date", label: "Listed", cls: "nowrap mono", fmt: function (r) { return escHtml(fmtDate(r.listed_date)); } },
-    { key: "maturity_date", label: "Maturity", cls: "nowrap mono", fmt: function (r) { return escHtml(fmtDate(r.maturity_date)); } },
+    { key: "issue_amount", label: "Amount", cls: "text-right mono", fmt: function (r) {
+      if (!r.issue_amount) return "";
+      return fmtCapital(r.issue_amount) + (r.currency && r.currency !== "USD" ? " " + escHtml(r.currency) : "");
+    }, sortVal: function (r) { return String(r.issue_amount || 0); } },
+    { key: "listed_date", label: "Listed", cls: "nowrap mono", fmt: function (r) { return escHtml(fmtDate(r.listed_date)); }, sortVal: function (r) { return r.listed_date || ""; } },
+    { key: "maturity_date", label: "Maturity", cls: "nowrap mono", fmt: function (r) { return escHtml(fmtDate(r.maturity_date)); }, sortVal: function (r) { return r.maturity_date || ""; } },
     { key: "source_url", label: "Source", fmt: function (r) { return sourceLink(r.source_url, "BSX"); } },
   ];
 }
@@ -989,7 +995,9 @@ function renderTable(tableId, stateKey, columns) {
     } else {
       arrow = '<span class="sort-arrow">\u25B2</span>';
     }
-    thead += '<th data-col="' + idx + '">' + escHtml(col.label) + arrow + "</th>";
+    thead += '<th data-col="' + idx + '" tabindex="0" role="columnheader" aria-sort="' +
+      (state.sortCol === idx ? (state.sortAsc ? "ascending" : "descending") : "none") + '">' +
+      escHtml(col.label) + arrow + "</th>";
   });
   thead += "</tr></thead>";
 
@@ -1011,7 +1019,7 @@ function renderTable(tableId, stateKey, columns) {
   table.innerHTML = thead + tbody;
 
   table.querySelectorAll("th").forEach(function (th) {
-    th.addEventListener("click", function () {
+    function doSort() {
       var colIdx = parseInt(th.getAttribute("data-col"), 10);
       if (state.sortCol === colIdx) {
         state.sortAsc = !state.sortAsc;
@@ -1021,6 +1029,10 @@ function renderTable(tableId, stateKey, columns) {
       }
       sortTableRows(stateKey, columns, colIdx, state.sortAsc);
       renderTable(tableId, stateKey, columns);
+    }
+    th.addEventListener("click", doSort);
+    th.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); doSort(); }
     });
   });
 
@@ -1043,11 +1055,17 @@ function sortTableRows(stateKey, columns, colIdx, asc) {
   var state = tableState[stateKey];
   var col = columns[colIdx];
   state.filteredRows.sort(function (a, b) {
-    var va = col.fmt(a).replace(/<[^>]+>/g, "").toLowerCase();
-    var vb = col.fmt(b).replace(/<[^>]+>/g, "").toLowerCase();
+    var va, vb;
+    if (col.sortVal) {
+      va = col.sortVal(a);
+      vb = col.sortVal(b);
+    } else {
+      va = col.fmt(a).replace(/<[^>]+>/g, "").toLowerCase();
+      vb = col.fmt(b).replace(/<[^>]+>/g, "").toLowerCase();
+    }
     var na = parseFloat(va);
     var nb = parseFloat(vb);
-    if (!isNaN(na) && !isNaN(nb)) return asc ? na - nb : nb - na;
+    if (!isNaN(na) && !isNaN(nb) && String(na) === va && String(nb) === vb) return asc ? na - nb : nb - na;
     if (va < vb) return asc ? -1 : 1;
     if (va > vb) return asc ? 1 : -1;
     return 0;
@@ -1097,17 +1115,28 @@ function setupTable(tableId, stateKey, columns, searchId, moreId, rows) {
 
 function setupTabs() {
   var buttons = document.querySelectorAll(".tab-btn[data-tab]");
-  buttons.forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var tab = btn.getAttribute("data-tab");
-      buttons.forEach(function (b) {
-        b.classList.toggle("active", b === btn);
-        b.setAttribute("aria-selected", b === btn ? "true" : "false");
-      });
-      document.querySelectorAll(".tab-content").forEach(function (panel) {
-        panel.hidden = panel.id !== "tab-" + tab;
-      });
-      resizeAllCharts();
+  function activateTab(btn) {
+    var tab = btn.getAttribute("data-tab");
+    buttons.forEach(function (b) {
+      b.classList.toggle("active", b === btn);
+      b.setAttribute("aria-selected", b === btn ? "true" : "false");
+      b.setAttribute("tabindex", b === btn ? "0" : "-1");
+    });
+    document.querySelectorAll(".tab-content").forEach(function (panel) {
+      panel.hidden = panel.id !== "tab-" + tab;
+    });
+    resizeAllCharts();
+  }
+  buttons.forEach(function (btn, idx) {
+    btn.setAttribute("tabindex", idx === 0 ? "0" : "-1");
+    btn.addEventListener("click", function () { activateTab(btn); });
+    btn.addEventListener("keydown", function (e) {
+      var btns = Array.from(buttons);
+      var i = btns.indexOf(btn);
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); var next = btns[(i + 1) % btns.length]; next.focus(); activateTab(next); }
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); var prev = btns[(i - 1 + btns.length) % btns.length]; prev.focus(); activateTab(prev); }
+      if (e.key === "Home") { e.preventDefault(); btns[0].focus(); activateTab(btns[0]); }
+      if (e.key === "End") { e.preventDefault(); btns[btns.length - 1].focus(); activateTab(btns[btns.length - 1]); }
     });
   });
 }
