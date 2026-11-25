@@ -1,223 +1,92 @@
 # OpenCatWatch
 
-> **[View the live dashboard →](https://smkwray.github.io/catwatch/)**
+**[View the live dashboard](https://smkwray.github.io/catwatch/)**
 
-OpenCatWatch is an evidence-first public registry and watchlist for catastrophe bonds and closely related publicly visible insurance-linked securities.
+OpenCatWatch (`catwatch`) is a public registry of catastrophe bonds and other publicly listed insurance-linked securities (ILS), with a rule-based watchlist of natural-hazard events that may overlap a bond's covered peril, region and risk period. Tranche records come from Bermuda Stock Exchange (BSX) listings, with issuers and sponsors matched through the Bermuda Monetary Authority (BMA) register and SEC filings. Each record links to the sources behind it.
 
-This repository is an initial public release and still a work in progress. The current snapshot is meant to be credible, inspectable, and reproducible, not complete.
+The repository holds the code, a committed snapshot of the static dashboard (`apps/site/`) and a data-quality audit (`reports/data_audit.md`). It is a work in progress and covers only what public listings show. It is not a pricing tool, a loss-trigger monitor or a complete ILS database, and a watchlist match means a possible overlap, not a triggered bond.
 
-The current release goal is a trustworthy public snapshot:
+## How the data are built
 
-- a normalized tranche registry built from public listings
-- sponsor enrichment tied to source evidence
-- a rule-based hazard overlap watchlist
-- a committed static dashboard for GitHub Pages
-- a committed audit report with a hard public-release gate
+- Tranche rows carry listing and sponsor source URLs where available.
+- Manual sponsor aliases and tranche overrides in `data/manual/` must include a `source_url` and `notes`.
+- A tranche enters the public watchlist only when its risk window is active or plausibly active, the event peril matches its peril, the event geography overlaps its coverage region, and its source evidence is strong enough. Matches with broad peril labels or weak region evidence are kept as review candidates and shown separately.
+- Families with unresolved sponsor, region or maturity evidence are listed in the audit.
 
-## What It Is
+[`docs/METHODS.md`](docs/METHODS.md) describes the matching and linkage rules, and [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) the tables.
 
-- Registry-first public infrastructure for cat-bond-like issuance
-- A static, precomputed dashboard and audit that can be committed to GitHub
-- A conservative watchlist of possible overlaps between public hazards and public tranche records
-- A codebase that prefers source URLs, filing links, and explicit notes over opaque enrichment
+## Data sources
 
-## What It Is Not
+| Source | Used for |
+|---|---|
+| BSX listing and company pages | Tranche discovery: series, status, listing date, currency, sponsor where shown |
+| BMA regulated-entities search | Issuer and special-purpose insurer names |
+| SEC EDGAR filings | Sponsor evidence for public sponsors |
+| National Weather Service alerts, NOAA Storm Events, IBTrACS tropical cyclone tracks, USGS earthquakes, OpenFEMA disaster declarations | Hazard events for the watchlist |
+| `data/manual/` | Sourced aliases and overrides |
 
-- Not a pricing terminal
-- Not a loss-trigger monitor
-- Not a comprehensive private ILS database
-- Not a substitute for offering documents or sponsor disclosures
+NOAA is the National Oceanic and Atmospheric Administration, IBTrACS the International Best Track Archive for Climate Stewardship, USGS the U.S. Geological Survey and FEMA the Federal Emergency Management Agency. Raw downloads (`data/raw/`) and rebuild artifacts (`data/processed/`) are not committed. See [`docs/DATA_SOURCES.md`](docs/DATA_SOURCES.md) and [`docs/LEGAL_NOTES.md`](docs/LEGAL_NOTES.md).
 
-## Evidence Model
+## Setup
 
-Every material public-facing artifact should stay traceable:
-
-- tranche rows carry listing evidence and sponsor evidence URLs when available
-- manual sponsor aliases and tranche overrides require both `source_url` and `notes`
-- watchlist cards are labeled `possible overlap`, carry explicit `public` vs `candidate` scope, and include rule-based reason text plus candidate diagnostics
-- unresolved families are called out in the audit’s public limitations section
-
-## What Gets Committed
-
-Committed:
-
-- code, tests, docs, fixture data
-- manual evidence tables in `data/manual/`
-- the current static snapshot in `apps/site/data/dashboard.json`
-- the current audit outputs in `reports/data_audit.json` and `reports/data_audit.md`
-
-Not committed:
-
-- raw downloads in `data/raw/`
-- processed rebuild artifacts in `data/processed/`
-
-## Local Setup
+Requires Python 3.11 or later.
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e '.[dev]'
+make install
 cp .env.example .env
 ```
 
-Before any live fetch, set a real contact string:
+Before any live fetch, set `OPENCATWATCH_USER_AGENT` in `.env` or your shell to a string with your real contact URL or email; the fetchers refuse the built-in default. Data go to `data/` unless `OPENCATWATCH_DATA_DIR` names another directory. `OPENCATWATCH_AS_OF_DATE=YYYY-MM-DD` pins the registry, dashboard and audit to one date and is required for `make release-check`.
 
-```bash
-export OPENCATWATCH_USER_AGENT="OpenCatWatch/0.1 (contact contact@example.com)"
-```
+## Usage
 
-The fetchers will reject the placeholder default.
-
-Optional shared-data mode:
-
-- `PROJ_SHARED_DATA_ROOT=/path/to/shared/pool` stores this repo's data under `$PROJ_SHARED_DATA_ROOT/catwatch/data/`
-- `OPENCATWATCH_DATA_DIR` still overrides that path if you need a custom location
-- `OPENCATWATCH_AS_OF_DATE=YYYY-MM-DD` pins registry/site/audit build math to a reproducible as-of date and is required for `make release-check`
-
-## Common Commands
+Check the committed snapshot without fetching anything:
 
 ```bash
 make lint
 make test
-make registry
-make watchlist
-make site
-make audit
-make review-queue
-make release-check
 make snapshot-check
 ```
 
-`make release-check` runs the local operator-facing release flow:
-
-1. lint
-2. tests
-3. registry rebuild
-4. watchlist rebuild
-5. site rebuild
-6. audit generation
-7. release-gate assertions
-
-`make snapshot-check` validates the committed `apps/site/data/dashboard.json` and `reports/data_audit.json` snapshot without fetching live data.
-
-## Rebuilding The Public Snapshot
-
-If local raw/processed source data already exists:
+Fetch live data and rebuild everything with `make fetch` (or `make refresh`). With raw data already in place, rebuild step by step:
 
 ```bash
 export OPENCATWATCH_AS_OF_DATE=YYYY-MM-DD
-make registry
-make watchlist
-make site
-make audit
-make review-queue
+make registry watchlist site audit review-queue
 ```
 
-If you need to refresh live data first, set a real user agent and an explicit `OPENCATWATCH_AS_OF_DATE`, then run the relevant fetch commands. `fetch-bsx` currently falls back to reparsing saved raw BSX detail pages if the live listing routes are unavailable.
-
-## Frontend
-
-The static site in `apps/site/` is a data-rich dashboard built with plain HTML, CSS, and vanilla JavaScript. It reads precomputed JSON artifacts at runtime — no build step, no framework, no backend service.
-
-### What the frontend shows
-
-The dashboard is built as an editorial, data-journalism-style narrative rather than a generic admin panel:
-
-- **Hero** — headline stats: total capital tracked, active tranches, identified sponsors, 12-month maturing capital
-- **Sponsor concentration** — top 10 sponsors by placed USD capital (horizontal bar chart)
-- **Geographic concentration** — bubble scatter on a world map, sized by capital, colored by dominant peril
-- **Peril mix** — treemap showing how capital splits across peril families (US wind, CA earthquake, mortgage insurance, etc.)
-- **Market timeline** — annual issuance bar chart showing growth from 2018 to present
-- **Maturity runway** — three stat cards (12/24/36 month windows) plus a stacked maturity wall by quarter and peril
-- **Watchlist pressure** — public vs. candidate split, promotion blockers, and most blocked issuer families
-- **Evidence quality** — coverage scorecard with progress bars, gap counts, trigger coverage, and unresolved families
-- **Data tables** — sortable, searchable, paginated views of top public watchlist, review candidate, and maturity wall rows
-
-### Data sources
-
-The site loads two JSON files:
-
-| File | Path (relative to site root) | Required | Contents |
-|------|------------------------------|----------|----------|
-| Dashboard | `./data/dashboard.json` | Yes | KPIs, maturity wall, watchlist, diagnostics, matrix, notes, limitations |
-| Audit | `./data/audit.json` | No (graceful degradation) | Coverage metrics, release-gate checks, review candidates |
-
-`dashboard.json` is produced by `make site`. To make audit data available on the deployed site, copy the audit output into the site data directory:
+`make site` writes `apps/site/data/dashboard.json` and `make audit` writes `reports/data_audit.json` and `reports/data_audit.md`. To show the audit on the dashboard, copy it into the site:
 
 ```bash
 cp reports/data_audit.json apps/site/data/audit.json
 ```
 
-### Dark / light mode
+If the live BSX listing pages are unavailable, `fetch-bsx` reparses previously saved BSX detail pages. `make release-check` runs lint, tests, the full rebuild and the audit, and fails if coverage falls below the release thresholds.
 
-The theme system uses CSS custom properties on `[data-theme]` with a toggle button in the hero:
+To preview the dashboard, run `python3 -m http.server -d apps/site 8000` and open `http://localhost:8000`. It is plain HTML, CSS and JavaScript with no build step; charts load Apache ECharts from a CDN.
 
-1. On first load, checks `localStorage` for a saved preference.
-2. Falls back to the OS preference via `prefers-color-scheme`.
-3. Clicking the toggle switches the theme and persists to `localStorage`. Only explicit toggles write to storage — first-visit users get their OS preference without a stale override.
-4. All ECharts instances watch for `data-theme` attribute changes via `MutationObserver` and recompute their full option objects — tooltip backgrounds, axis labels, gridlines, legend text, and series colors are all re-applied, not just the page chrome.
+## Repository map
 
-### Charting
-
-Charts use [Apache ECharts 5](https://echarts.apache.org/) loaded from the jsDelivr CDN. ECharts was chosen because:
-
-- Rich interactive tooltips, zoom, and legend filtering out of the box
-- Full programmatic theme control — chart options are regenerated from a `getChartTheme()` helper on every theme toggle
-- No build step; works from a CDN `<script>` tag
-- Responsive resize via `chart.resize()` on window resize events
-
-All chart text, axes, gridlines, tooltips, and legends use theme-aware color tokens so they remain readable in both light and dark mode.
-
-### Local preview
-
-```bash
-# From the repo root — any static file server works
-cd apps/site && python3 -m http.server 8000
-# Open http://localhost:8000
+```
+src/opencatwatch/   Fetchers, pipelines and the opencatwatch command
+apps/site/          Static dashboard and its committed data
+reports/            Committed audit outputs
+data/manual/        Manual evidence tables
+catalog/sources.yml Source catalog
+docs/               Methods, data model, sources and legal notes
+tests/              Parser, pipeline and quality tests
 ```
 
-Or use VS Code's Live Server, `npx serve apps/site`, etc. No npm install or build step is needed.
+## Limitations
 
-## Publishing GitHub Pages
-
-The repo is designed to publish the committed snapshot in `apps/site/` directly. The Pages workflow does not fetch live data; it deploys the checked-in dashboard and accompanying assets from the current initial-release snapshot.
-
-To include audit metrics on the deployed site, copy the audit JSON before committing:
-
-```bash
-cp reports/data_audit.json apps/site/data/audit.json
-```
-
-## Repository Map
-
-- `src/opencatwatch/` - fetchers, pipelines, CLI
-- `apps/site/` - static dashboard (HTML/CSS/JS + committed JSON data)
-- `apps/site/assets/` - styles, theme toggle, main app logic
-- `apps/site/data/` - committed dashboard snapshot
-- `docs/` - public reference docs only
-- `catalog/sources.yml` - source catalog
-- `data/manual/` - tracked manual evidence tables
-- `reports/` - committed public audit outputs
-- `tests/` - parser, pipeline, and quality regressions
-
-## Public Docs Boundary
-
-`docs/` is part of the public repo surface. Keep only stable public reference material there. Internal planning notes, operator checklists, release playbooks, and agent/session bootstrap docs belong under `do/` and must stay untracked.
-
-## Current Public Gate
-
-The first public push targets a usable snapshot, not a perfect market map. The release gate currently enforces:
-
-- sponsor coverage on material tranches >= 70%
-- region coverage on material tranches >= 95%
-- outstanding rows missing maturity <= 40
-- `other_property_cat` rows in the registry <= 25
-- non-demo dashboard snapshot present
-- current audit outputs present
-- manual evidence metadata complete
-- public watchlist rows have zero unresolved tranche blockers
+- Coverage is limited to tranches visible in public listings; private placements and unlisted deals are missing.
+- Sponsor, region and maturity evidence is incomplete for some issuer families; the audit lists them.
+- Watchlist matching uses coarse peril, date and geography rules, so it cannot confirm a trigger, a loss or a payout.
+- Programme shells without a maturity date are excluded from watchlist matching and maturity counts.
+- The sponsor-peril matrix counts only identified sponsors.
 
 ## License
 
-MIT. See `LICENSE`.
+MIT. See [`LICENSE`](LICENSE).

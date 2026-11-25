@@ -34,3 +34,5 @@ data/processed/**
 !data/processed/.gitkeep
 !data/manual/.gitkeep
 data/manual/review_queue.csv
+
+.private-denylist

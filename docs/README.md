@@ -1,12 +1,6 @@
-# Public Docs
+# Documentation
 
-The `docs/` directory is public. Keep only stable, public-facing reference material here.
-
-Allowed content:
-
-- data-source reference
-- data-model reference
-- methods and claim-language constraints
-- legal and provenance notes
-
-Do not put internal planning notes, operator checklists, release playbooks, or agent/session bootstrap material in this directory. Private working docs belong under `do/`, which stays out of the public repo.
+- [METHODS.md](METHODS.md): parsing, watchlist matching, field attribution, linkage order and claim language.
+- [DATA_MODEL.md](DATA_MODEL.md): entities, fields and the peril and region taxonomies.
+- [DATA_SOURCES.md](DATA_SOURCES.md): registry, sponsor-evidence and hazard sources.
+- [LEGAL_NOTES.md](LEGAL_NOTES.md): publication and source-terms notes.
