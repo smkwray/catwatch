@@ -896,6 +896,22 @@ def test_validate_public_snapshot_rejects_stale_dashboard_as_of(tmp_path: Path):
     with pytest.raises(RuntimeError, match="dashboard_current"):
         validate_public_snapshot(settings)
 
+    # The push gate checks consistency only: an old but intact snapshot must not block
+    # unrelated pushes, while the default check above still flags its age.
+    assert Path(validate_public_snapshot(settings, check_freshness=False)) == settings.reports_dir / "data_audit.json"
+
+
+def test_validate_public_snapshot_without_freshness_still_requires_dashboard_date(tmp_path: Path):
+    settings = _settings(tmp_path / "undated")
+    _write_manual_tables(settings)
+    payload = _dashboard_payload(as_of="2026-01-11")
+    payload.pop("as_of")
+    write_json(settings.data_dir.parent / "apps" / "site" / "data" / "dashboard.json", payload)
+    write_json(settings.data_dir.parent / "reports" / "data_audit.json", {"release_gate": {"failed_checks": []}})
+
+    with pytest.raises(RuntimeError, match="dashboard_current"):
+        validate_public_snapshot(settings, check_freshness=False)
+
 
 def test_validate_public_snapshot_uses_settings_as_of_date_for_dashboard_age(tmp_path: Path):
     settings = Settings(

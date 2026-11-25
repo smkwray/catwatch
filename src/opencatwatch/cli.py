@@ -156,9 +156,13 @@ def release_check_cmd() -> None:
 
 
 @app.command("validate-public-snapshot")
-def validate_public_snapshot_cmd() -> None:
+def validate_public_snapshot_cmd(
+    skip_freshness: bool = typer.Option(
+        False, "--skip-freshness", help="Check snapshot consistency without the dashboard age limit."
+    ),
+) -> None:
     settings = get_settings()
-    result = validate_public_snapshot(settings=settings)
+    result = validate_public_snapshot(settings=settings, check_freshness=not skip_freshness)
     typer.echo(f"public snapshot validation passed: {result}")
 
 

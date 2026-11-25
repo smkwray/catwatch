@@ -50,6 +50,8 @@ make test
 make snapshot-check
 ```
 
+`make snapshot-check` checks that the committed dashboard and audit agree. `make snapshot-freshness` runs the same checks and also fails when the dashboard is more than 14 days old.
+
 Fetch live data and rebuild everything with `make fetch` (or `make refresh`). With raw data already in place, rebuild step by step:
 
 ```bash

@@ -946,7 +946,7 @@ def audit_processed_data(settings: Settings) -> str:
     return str(reports_dir / "data_audit.md")
 
 
-def validate_public_snapshot(settings: Settings) -> str:
+def validate_public_snapshot(settings: Settings, *, check_freshness: bool = True) -> str:
     dashboard = _load_dashboard(settings)
     audit_path = settings.reports_dir / "data_audit.json"
     if not audit_path.exists():
@@ -960,7 +960,9 @@ def validate_public_snapshot(settings: Settings) -> str:
         snapshot_failures.append("dashboard_demo_mode")
     else:
         dashboard_age_days = _dashboard_age_days(dashboard, reference_date=settings.as_of_date)
-        if dashboard_age_days is None or dashboard_age_days > RELEASE_THRESHOLDS["dashboard_max_age_days"]:
+        if dashboard_age_days is None or (
+            check_freshness and dashboard_age_days > RELEASE_THRESHOLDS["dashboard_max_age_days"]
+        ):
             snapshot_failures.append("dashboard_current")
         if not _dashboard_has_evidence_fields(dashboard):
             snapshot_failures.append("dashboard_evidence_fields")

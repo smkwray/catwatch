@@ -1,4 +1,4 @@
-.PHONY: install demo fetch refresh registry watchlist site audit review-queue test lint release-check snapshot-check
+.PHONY: install demo fetch refresh registry watchlist site audit review-queue test lint release-check snapshot-check snapshot-freshness
 
 PYTHON ?= $(if $(VIRTUAL_ENV),$(VIRTUAL_ENV)/bin/python,$(shell command -v python3 2>/dev/null || command -v python))
 ifeq ($(strip $(PYTHON)),)
@@ -53,4 +53,7 @@ release-check:
 	$(PYTHON) -m opencatwatch release-check
 
 snapshot-check:
+	$(PYTHON) -m opencatwatch validate-public-snapshot --skip-freshness
+
+snapshot-freshness:
 	$(PYTHON) -m opencatwatch validate-public-snapshot
