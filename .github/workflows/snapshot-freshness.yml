@@ -1,8 +1,6 @@
 name: Snapshot Freshness
 
 on:
-  schedule:
-    - cron: "0 13 * * 1"
   workflow_dispatch:
 
 permissions:

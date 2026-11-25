@@ -13,7 +13,7 @@ The repository holds the code, a committed snapshot of the static dashboard (`ap
 - A tranche enters the public watchlist only when its risk window is active or plausibly active, the event peril matches its peril, the event geography overlaps its coverage region, and its source evidence is strong enough. Matches with broad peril labels or weak region evidence are kept as review candidates and shown separately.
 - Families with unresolved sponsor, region or maturity evidence are listed in the audit.
 
-[`docs/METHODS.md`](docs/METHODS.md) describes the matching and linkage rules, and [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) the tables.
+[`docs/METHODS.md`](docs/METHODS.md) describes the matching and linkage rules.
 
 ## Data sources
 
@@ -25,7 +25,7 @@ The repository holds the code, a committed snapshot of the static dashboard (`ap
 | National Weather Service alerts, NOAA Storm Events, IBTrACS tropical cyclone tracks, USGS earthquakes, OpenFEMA disaster declarations | Hazard events for the watchlist |
 | `data/manual/` | Sourced aliases and overrides |
 
-NOAA is the National Oceanic and Atmospheric Administration, IBTrACS the International Best Track Archive for Climate Stewardship, USGS the U.S. Geological Survey and FEMA the Federal Emergency Management Agency. Raw downloads (`data/raw/`) and rebuild artifacts (`data/processed/`) are not committed. See [`docs/DATA_SOURCES.md`](docs/DATA_SOURCES.md) and [`docs/LEGAL_NOTES.md`](docs/LEGAL_NOTES.md).
+NOAA is the National Oceanic and Atmospheric Administration, IBTrACS the International Best Track Archive for Climate Stewardship, USGS the U.S. Geological Survey and FEMA the Federal Emergency Management Agency. Raw downloads (`data/raw/`) and rebuild artifacts (`data/processed/`) are not committed.
 
 ## Setup
 
@@ -77,7 +77,7 @@ apps/site/          Static dashboard and its committed data
 reports/            Committed audit outputs
 data/manual/        Manual evidence tables
 catalog/sources.yml Source catalog
-docs/               Methods, data model, sources and legal notes
+docs/               Matching and linkage methods
 tests/              Parser, pipeline and quality tests
 ```
 
