@@ -11,7 +11,6 @@ This is an initial public release, not a finished data product. Favor improvemen
 - Do not claim confirmed triggers or losses from coarse public event overlap alone.
 - Prefer normalized facts plus source links over copied source text.
 - Keep CI deterministic. Do not add live-source fetches to GitHub Actions.
-- Treat `docs/` as public-only. Internal planning, release, and operator notes belong under `do/`, not in tracked repo docs.
 
 ## Local Setup
 
