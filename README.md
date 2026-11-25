@@ -4,7 +4,7 @@
 
 OpenCatWatch (`catwatch`) is a public registry of catastrophe bonds and other publicly listed insurance-linked securities (ILS), with a rule-based watchlist of natural-hazard events that may overlap a bond's covered peril, region and risk period. Tranche records come from Bermuda Stock Exchange (BSX) listings, with issuers and sponsors matched through the Bermuda Monetary Authority (BMA) register and SEC filings. Each record links to the sources behind it.
 
-The repository holds the code, a committed snapshot of the static dashboard (`apps/site/`) and a data-quality audit (`reports/data_audit.md`). It is a work in progress and covers only what public listings show. It is not a pricing tool, a loss-trigger monitor or a complete ILS database, and a watchlist match means a possible overlap, not a triggered bond.
+The repository holds the code, a committed snapshot of the static dashboard (`apps/site/`, data as of 2026-03-28) and a data-quality audit (`reports/data_audit.md`). It is a work in progress and covers only what public listings show. It is not a pricing tool, a loss-trigger monitor or a complete ILS database, and a watchlist match means a possible overlap, not a triggered bond.
 
 ## How the data are built
 
